@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cyclago/features/home/home_screen.dart'; // Import for navigation to HomeScreen
+// Import for navigation to HomeScreen
 import 'package:cyclago/main.dart'; // Import for navigation to MainScaffold
 
 class LoginScreen extends StatelessWidget {
