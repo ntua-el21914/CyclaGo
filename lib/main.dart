@@ -1,121 +1,234 @@
 import 'package:flutter/material.dart';
+import 'features/home/home_screen.dart';
+import 'features/trips/trips_screen.dart';
+import 'features/auth/login_screen.dart';
+import 'features/social/island_pass_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const CyclaGoApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class CyclaGoApp extends StatelessWidget {
+  const CyclaGoApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'CyclaGo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        scaffoldBackgroundColor: Colors.white,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const LoginScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class MainScaffold extends StatefulWidget {
+  const MainScaffold({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MainScaffold> createState() => _MainScaffoldState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _MainScaffoldState extends State<MainScaffold> {
+  int _selectedIndex = 0;
 
-  void _incrementCounter() {
+  // The 5 Screens
+  final List<Widget> _screens = [
+    const HomeScreen(),          // Index 0: Home
+    const IslandPassScreen(),    // Index 1: Camera
+    const Center(child: Text("Map Screen")), // Index 2: Map
+    const TripsScreen(),         // Index 3: Calendar
+    const Center(child: Text("Profile Screen")), // Index 4: Profile
+  ];
+
+  void _onItemTapped(int index) {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _selectedIndex = index;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Stack(
+        children: [
+          // 1. THE CONTENT
+          Positioned.fill(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: _screens,
             ),
-          ],
-        ),
+          ),
+
+          // 2. THE CUSTOM FLOATING NAVIGATION BAR
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: CustomNavBar(
+              selectedIndex: _selectedIndex,
+              onTap: _onItemTapped,
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class CustomNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onTap;
+
+  const CustomNavBar({
+    super.key,
+    required this.selectedIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryBlue = Color(0xFF1269C7);
+    
+    // Boolean to check if the big middle button is selected
+    bool isMapSelected = selectedIndex == 2;
+
+    return SizedBox(
+      height: 110, // Height of the total nav area
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          // A. The White Pill Bar
+          Container(
+            height: 70,
+            margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: primaryBlue, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x3F000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 4),
+                )
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Index 0: Home
+                _NavBarItem(
+                  icon: Icons.home_filled, // Using filled icons to match look
+                  index: 0,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
+                // Index 1: Camera
+                _NavBarItem(
+                  icon: Icons.camera_alt_rounded,
+                  index: 1,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
+                
+                // Gap for the Map Button
+                const SizedBox(width: 60),
+
+                // Index 3: Calendar
+                _NavBarItem(
+                  icon: Icons.calendar_today_rounded,
+                  index: 3,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
+                // Index 4: Profile
+                _NavBarItem(
+                  icon: Icons.person_rounded,
+                  index: 4,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
+              ],
+            ),
+          ),
+
+          // B. The Floating Map Button
+          Positioned(
+            bottom: 45, // Pushes it up to float
+            child: GestureDetector(
+              onTap: () => onTap(2),
+              child: Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  // Logic: If selected, Solid Blue. If not, White.
+                  color: isMapSelected ? primaryBlue : Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: primaryBlue, width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x3F000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: Icon(
+                  Icons.map_outlined,
+                  size: 36,
+                  // Logic: If selected, White Icon. If not, Blue Icon.
+                  color: isMapSelected ? Colors.white : primaryBlue,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Helper Widget for the standard buttons (Home, Camera, etc) ---
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final int index;
+  final int selectedIndex;
+  final Function(int) onTap;
+
+  const _NavBarItem({
+    required this.icon,
+    required this.index,
+    required this.selectedIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryBlue = Color(0xFF1269C7);
+    bool isSelected = index == selectedIndex;
+
+    return GestureDetector(
+      onTap: () => onTap(index),
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          // Logic: If selected, Solid Blue Square. If not, Transparent.
+          color: isSelected ? primaryBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(12), // Rounded corners for the blue square
+        ),
+        child: Icon(
+          icon,
+          size: 30,
+          // Logic: If selected, White Icon. If not, Blue Icon.
+          color: isSelected ? Colors.white : primaryBlue,
+        ),
       ),
     );
   }

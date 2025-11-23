@@ -28,12 +28,29 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  google_fonts: ^6.1.0
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  # Navigation & Icons
+  cupertino_icons: ^1.0.2
+  
+  # 1. Subsystem: Camera (Required for your custom UI)
+  camera: ^0.10.5
+  path_provider: ^2.1.2
+  path: ^1.9.0
+
+  # 2. Subsystem: Location & Maps (No API key required with flutter_map)
+  geolocator: ^10.1.0
+  flutter_map: ^6.0.0      # Easier than Google Maps for assignments
+  latlong2: ^0.9.0
+
+  # 3. Data Persistence (Database)
+  sqflite: ^2.3.0          # For saving Trips
+  shared_preferences: ^2.2.2 # For saving simple Login state
+
+  # 4. Formatting (Optional but helpful for dates)
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
@@ -51,7 +68,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
+  assets:
+    - assets/images/
+    - assets/icons/
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
