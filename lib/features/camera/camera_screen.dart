@@ -1,5 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+// 1. IMPORT THE PREVIEW SCREEN
+import 'package:cyclago/features/camera/preview_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -20,18 +22,17 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _initializeCamera() async {
-    // 1. Get list of cameras
+    // Get list of cameras
     _cameras = await availableCameras();
     
     if (_cameras != null && _cameras!.isNotEmpty) {
-      // 2. Select the first camera (usually the back camera)
+      // Use the first camera (Back Camera)
       _controller = CameraController(
         _cameras![0],
         ResolutionPreset.high,
         enableAudio: false,
       );
 
-      // 3. Initialize the controller
       await _controller!.initialize();
       
       if (!mounted) return;
@@ -52,7 +53,7 @@ class _CameraScreenState extends State<CameraScreen> {
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
 
-    // If camera isn't ready, show a loading spinner
+    // Show loading spinner until camera is ready
     if (!_isCameraInitialized || _controller == null) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -65,24 +66,23 @@ class _CameraScreenState extends State<CameraScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. THE LIVE CAMERA FEED (Background)
+          // 1. LIVE CAMERA FEED
           CameraPreview(_controller!),
 
-          // 2. TOP LEFT ARROW (Back Button)
+          // 2. BACK BUTTON (Top Left Arrow)
           Positioned(
             top: 50, 
             left: 20,
             child: IconButton(
               icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 40),
               onPressed: () {
-                // Go back to previous tab or home (since this is a modal/screen)
-                // For now, we can just switch tab if managed by MainScaffold, 
-                // or pop if pushed.
+                // FIX 1: Close the camera screen
+                Navigator.pop(context);
               },
             ),
           ),
 
-          // 3. BOTTOM CONTROLS (Flash, Shutter, Flip)
+          // 3. BOTTOM CONTROLS
           Positioned(
             bottom: 40,
             left: 0,
@@ -93,29 +93,49 @@ class _CameraScreenState extends State<CameraScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // A. Flash Icon (Left)
+                  // Flash Icon
                   IconButton(
-                    onPressed: () {}, 
+                    onPressed: () {}, // Flash logic can go here later
                     icon: const Icon(Icons.flash_on, color: primaryBlue, size: 40),
                   ),
 
-                  // B. Shutter Button (Center) - Your Custom Circle Code
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: primaryBlue, 
-                        width: 10, // Thick blue border
+                  // FIX 2: SHUTTER BUTTON (The Blue Circle)
+                  GestureDetector(
+                    onTap: () async {
+                      try {
+                        // A. Take the Picture
+                        final image = await _controller!.takePicture();
+                        
+                        if (!mounted) return;
+
+                        // B. Go to Preview Screen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PreviewScreen(imagePath: image.path),
+                          ),
+                        );
+                      } catch (e) {
+                        print("Error taking picture: $e");
+                      }
+                    },
+                    child: Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: primaryBlue, 
+                          width: 10, 
+                        ),
+                        color: Colors.transparent,
                       ),
-                      color: Colors.transparent,
                     ),
                   ),
 
-                  // C. Flip Camera Icon (Right)
+                  // Flip Camera Icon
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {}, // Flip logic can go here later
                     icon: const Icon(Icons.cached, color: primaryBlue, size: 40),
                   ),
                 ],
