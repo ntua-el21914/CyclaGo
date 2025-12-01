@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 // Ensure these imports match your folder structure exactly
 import 'features/home/home_screen.dart';
 import 'features/trips/trips_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/social/island_pass_screen.dart';
 
-void main() {
+//Firebase-Database
+import 'firebase_options.dart';
+
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    // Attempt to connect to Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    
+    // If we get here, it worked!
+    print("FIREBASE CONNECTED SUCCESSFULLY");
+    
+  } catch (e) {
+    // If it fails, print the error
+    print("❌❌❌ FIREBASE CONNECTION FAILED ❌❌❌");
+    print("Error details: $e");
+  }
+
   runApp(const CyclaGoApp());
 }
 
@@ -146,6 +168,7 @@ class CustomNavBar extends StatelessWidget {
               child: Container(
                 width: 70,
                 height: 70,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: isMapSelected ? primaryBlue : Colors.white,
                   borderRadius: BorderRadius.circular(15),
@@ -154,7 +177,7 @@ class CustomNavBar extends StatelessWidget {
                 ),
                 child: Icon(
                   Icons.map_outlined,
-                  size: 36,
+                  size: 60,
                   color: isMapSelected ? Colors.white : primaryBlue,
                 ),
               ),

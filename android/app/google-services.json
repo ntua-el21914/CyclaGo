@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "41063933712",
+    "project_id": "cyclago-c940e",
+    "storage_bucket": "cyclago-c940e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:41063933712:android:1fbf2f62e76bcba4da2795",
+        "android_client_info": {
+          "package_name": "com.example.cyclago"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACYX0snQtvOnU2ORxLxRA8L5n3pIX6DiI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

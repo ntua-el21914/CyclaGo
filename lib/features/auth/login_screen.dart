@@ -1,14 +1,108 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// Import for navigation to HomeScreen
-import 'package:cyclago/main.dart'; // Import for navigation to MainScaffold
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 1. Need Firestore for the lookup
+import '../../main.dart'; 
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  // renamed to 'identifier' because it could be email OR username
+  final _identifierController = TextEditingController(); 
+  final _passwordController = TextEditingController();
+  
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    if (_identifierController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields")),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    String input = _identifierController.text.trim();
+    String password = _passwordController.text.trim();
+    String? emailToUse;
+
+    try {
+      // --- STEP 1: Determine if it is Email or Username ---
+      if (input.contains('@')) {
+        // It looks like an email, use it directly
+        emailToUse = input;
+      } else {
+        // It looks like a username, look it up in the database
+        print("🔍 Searching for username: $input");
+        
+        final QuerySnapshot result = await FirebaseFirestore.instance
+            .collection('users')
+            .where('username', isEqualTo: input)
+            .limit(1)
+            .get();
+
+        if (result.docs.isEmpty) {
+          throw FirebaseAuthException(
+            code: 'user-not-found', 
+            message: 'Username not found.'
+          );
+        }
+
+        // We found the user! Get their email.
+        emailToUse = result.docs.first.get('email');
+        print("✅ Username found! Linked to: $emailToUse");
+      }
+
+      // --- STEP 2: Login with the resolved Email ---
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailToUse!,
+        password: password,
+      );
+
+      if (mounted) {
+        print("✅ Login Successful");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScaffold()),
+        );
+      }
+
+    } on FirebaseAuthException catch (e) {
+      print("❌ Login Error: ${e.code}");
+      String message = e.message ?? "Login failed";
+      
+      // Make error messages friendlier
+      if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
+        message = "Incorrect username or password.";
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+       print("❌ General Error: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _identifierController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Helper variables for your specific colors
     const Color primaryBlue = Color(0xFF1269C7);
     const Color placeholderGrey = Color(0xFFD0D0D0);
 
@@ -16,16 +110,14 @@ class LoginScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          // Allows scrolling when keyboard opens
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 46.0), // Matches your left: 46 roughly
+            padding: const EdgeInsets.symmetric(horizontal: 46.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(height: 60), // Top spacing
+                const SizedBox(height: 60),
 
-                // --- LOGO SECTION ---
-                // Matches your 150x150 container with blue border
+                // --- LOGO ---
                 Container(
                   width: 150,
                   height: 150,
@@ -36,17 +128,15 @@ class LoginScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(25.0),
                     child: Image.asset(
-                      'assets/images/cyclago_logo.png', // Ensure you have this image!
+                      'assets/icons/CyclaGoLogo.svg',
                       fit: BoxFit.contain,
-                      // Fallback icon if image is missing
-                      errorBuilder: (c, o, s) => const Icon(Icons.image, size: 50, color: primaryBlue),
+                      errorBuilder: (c, o, s) => const Icon(Icons.directions_bike, size: 60, color: primaryBlue),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 40),
 
-                // --- TITLE ---
                 Text(
                   'Login',
                   style: GoogleFonts.hammersmithOne(
@@ -58,13 +148,14 @@ class LoginScreen extends StatelessWidget {
 
                 const SizedBox(height: 40),
 
-                // --- USERNAME FIELD ---
-                // Matches the Container with rounded border from your code
+                // --- USERNAME / EMAIL FIELD ---
                 TextFormField(
+                  controller: _identifierController,
+                  // We remove TextInputType.emailAddress so they can type usernames easily
                   decoration: InputDecoration(
-                    hintText: 'Username',
+                    hintText: 'Username or Email', // UPDATED HINT
                     hintStyle: GoogleFonts.hammersmithOne(
-                      fontSize: 24,
+                      fontSize: 20, // Slightly smaller to fit text
                       color: placeholderGrey,
                     ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
@@ -83,6 +174,7 @@ class LoginScreen extends StatelessWidget {
 
                 // --- PASSWORD FIELD ---
                 TextFormField(
+                  controller: _passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     hintText: 'Password',
@@ -104,8 +196,8 @@ class LoginScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
-                // --- "Don't have an account?" ROW ---
-                FittedBox( // Ensures text fits on smaller screens
+                // --- CREATE ACCOUNT ROW ---
+                FittedBox(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -118,8 +210,7 @@ class LoginScreen extends StatelessWidget {
                       ),
                       GestureDetector(
                         onTap: () {
-                           // Navigate to Register Screen
-                           // Navigator.push(context, MaterialPageRoute(builder: (context) => RegisterScreen()));
+                           // TODO: Navigate to Register Screen
                         },
                         child: Text(
                           'Create one!',
@@ -135,18 +226,11 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 100), // Spacing before button
+                const SizedBox(height: 100),
 
-                // --- BLUE ARROW BUTTON ---
-                // Matches your 75x75 circle
+                // --- LOGIN BUTTON ---
                 InkWell(
-                  onTap: () {
-                    // Navigate to Home
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MainScaffold()),
-                    );
-                  },
+                  onTap: _isLoading ? null : _handleLogin,
                   child: Container(
                     width: 75,
                     height: 75,
@@ -154,15 +238,20 @@ class LoginScreen extends StatelessWidget {
                       color: primaryBlue,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.arrow_forward,
-                      color: Colors.white,
-                      size: 40,
-                    ),
+                    child: _isLoading 
+                      ? const Padding(
+                          padding: EdgeInsets.all(20.0),
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                        )
+                      : const Icon(
+                          Icons.arrow_forward,
+                          color: Colors.white,
+                          size: 40,
+                        ),
                   ),
                 ),
                 
-                const SizedBox(height: 30), // Bottom padding
+                const SizedBox(height: 30),
               ],
             ),
           ),
