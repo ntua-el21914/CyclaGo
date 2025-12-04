@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 1. Need Firestore for the lookup
 import '../../main.dart'; 
 
@@ -128,10 +127,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(25.0),
-                    child: SvgPicture.asset(
-                      'assets/icons/CyclaGoLogo.svg',
+                    child: Image.asset(
+                      'assets/images/LoginPageImages/CyclaGoLogo.png',
                       fit: BoxFit.contain,
-                      errorBuilder: (c, o, s) => const Icon(Icons.directions_bike, size: 60, color: primaryBlue),
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.directions_bike, size: 60, color: primaryBlue),
                     ),
                   ),
                 ),
@@ -155,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: 'Username or Email', // UPDATED HINT
                     hintStyle: GoogleFonts.hammersmithOne(
-                      fontSize: 20,
+                      fontSize: 24,
                       color: placeholderGrey,
                     ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
