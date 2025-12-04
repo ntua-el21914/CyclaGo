@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cyclago/main.dart'; // Import MainScaffold to return home
 import 'package:cyclago/core/global_data.dart'; // Import global data to save posts
+//import 'package:cyclago/features/camera/preview_screen.dart';
 
 class PreviewScreen extends StatelessWidget {
   final String imagePath;
@@ -13,7 +14,9 @@ class PreviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Colors from your code
     const Color primaryBlue = Color(0xFF1269C7);
-    const Color greyBackground = Color(0xFFF6F9FC); // Light grey from your prev screens
+    const Color greyBackground = Color(
+      0xFFF6F9FC,
+    ); // Light grey from your prev screens
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -59,7 +62,7 @@ class PreviewScreen extends StatelessWidget {
                               color: Color(0x3F000000),
                               blurRadius: 4,
                               offset: Offset(0, 4),
-                            )
+                            ),
                           ],
                         ),
                         child: Column(
@@ -70,16 +73,18 @@ class PreviewScreen extends StatelessWidget {
                               padding: const EdgeInsets.all(16.0),
                               child: Row(
                                 children: [
-                                  // Circle Icon (Naxos)
+                                  // Circle Icon - Use captured image
                                   Container(
                                     width: 50,
                                     height: 50,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      border: Border.all(width: 1, color: Colors.grey),
-                                      image: const DecorationImage(
-                                        // Use the captured image as the profile icon for now, or a placeholder
-                                        image: NetworkImage("https://placehold.co/50x50"), 
+                                      border: Border.all(
+                                        width: 1,
+                                        color: Colors.grey,
+                                      ),
+                                      image: DecorationImage(
+                                        image: FileImage(File(imagePath)),
                                         fit: BoxFit.cover,
                                       ),
                                     ),
@@ -101,12 +106,19 @@ class PreviewScreen extends StatelessWidget {
                             // Matches your 390x200 container, but responsive
                             Container(
                               width: double.infinity,
-                              height: 250, // Slightly taller to show the photo well
-                              margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
+                              height:
+                                  250, // Slightly taller to show the photo well
+                              margin: const EdgeInsets.only(
+                                bottom: 16,
+                                left: 16,
+                                right: 16,
+                              ),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 image: DecorationImage(
-                                  image: FileImage(File(imagePath)), // Display captured photo
+                                  image: FileImage(
+                                    File(imagePath),
+                                  ), // Display captured photo
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -159,7 +171,7 @@ class PreviewScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 10),
 
                   // SEND BUTTON (Blue Arrow)
@@ -167,12 +179,14 @@ class PreviewScreen extends StatelessWidget {
                     onTap: () {
                       // 1. INSERT LOGIC HERE: Save the image path to a list
                       // For this demo, we will add it to a global list (see step 2 below)
-                      GlobalFeedData.posts.add(imagePath); 
+                      GlobalFeedData.posts.add(imagePath);
 
                       // 2. Navigate back to the Main App (Tab 1 will now show the photo)
                       Navigator.pushAndRemoveUntil(
-                        context, 
-                        MaterialPageRoute(builder: (context) => const MainScaffold()),
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MainScaffold(),
+                        ),
                         (route) => false,
                       );
                     },
