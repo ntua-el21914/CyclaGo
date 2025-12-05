@@ -136,20 +136,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Τίτλος Νησιού
-                      Text(
-                        title,
-                        style: GoogleFonts.hammersmithOne(
-                          color: primaryBlue,
-                          fontSize: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Εικόνα Νησιού
+                      // Εικόνα με τίτλο
                       Container(
                         width: double.infinity,
-                        height: 200,
+                        height: 330,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           color: Colors.white,
@@ -167,10 +157,35 @@ class _HomeScreenState extends State<HomeScreen> {
                             )
                           ],
                         ),
-                        // Αν δεν υπάρχει εικόνα, δείξε ένα εικονίδιο
-                        child: imageUrl.isEmpty 
-                            ? const Center(child: Icon(Icons.image_not_supported)) 
-                            : null,
+                        child: Stack(
+                          children: [
+                            // 1. Εικονίδιο αν δεν υπάρχει εικόνα (στο κέντρο)
+                            if (imageUrl.isEmpty)
+                              const Center(child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey)),
+
+                            // 2. Το όνομα του νησιού (Πάνω Αριστερά)
+                            Positioned(
+                              top: 20,  // Απόσταση από πάνω
+                              left: 20, // Απόσταση από αριστερά
+                              child: Text(
+                                title, // Η μεταβλητή τίτλου από το Firestore
+                                style: GoogleFonts.hammersmithOne(
+                                  color: primaryBlue, // Λευκό χρώμα για να φαίνεται πάνω στην εικόνα
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  // Προσθέτουμε σκιά (Shadow) για να διαβάζεται ακόμα και σε λευκές εικόνες
+                                  shadows: [
+                                    const Shadow(
+                                      offset: Offset(0, 2),
+                                      blurRadius: 6.0,
+                                      color: Colors.black54,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   );
