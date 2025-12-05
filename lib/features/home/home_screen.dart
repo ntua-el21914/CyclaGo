@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  String _displayName = "Cyclist"; // Default όνομα μέχρι να φορτώσει
+  String _displayName = "Traveller"; // Default όνομα μέχρι να φορτώσει
 
   @override
   void initState() {
@@ -37,8 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           setState(() {
             // Δείξε το firstName, αλλιώς το username, αλλιώς "Cyclist"
-            _displayName = userData['firstName'] ?? userData['username'] ?? "Cyclist";
-          });
+            _displayName = userData['username'] ?? userData['email'] ?? "Traveller";
+          }
+          );
         }
       }
     }
@@ -306,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               // Extra space at bottom so the Floating Nav Bar doesn't cover the last item
-              const SizedBox(height: 120),
+              
             ],
           ),
         ),
