@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 1. Need Firestore for the lookup
 import '../../main.dart'; 
+import 'package:flutter_svg/flutter_svg.dart';
+import 'register_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -123,15 +126,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 150,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: primaryBlue, width: 1),
+                    border: Border.all(color: primaryBlue, width: 2),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(25.0),
-                    child: Image.asset(
-                      'assets/images/LoginPageImages/CyclaGoLogo.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.directions_bike, size: 60, color: primaryBlue),
-                    ),
+                  child: SvgPicture.asset(
+                    'assets/icons/CyclaGoLogo.svg',
+                    fit: BoxFit.cover, // Changed to cover to fill the container
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.directions_bike, size: 60, color: primaryBlue),
                   ),
                 ),
 
@@ -209,7 +209,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       GestureDetector(
                         onTap: () {
-                           // TODO: Navigate to Register Screen
+                          // Navigate to Register Screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                          );
                         },
                         child: Text(
                           'Create one!',
