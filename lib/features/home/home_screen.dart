@@ -194,63 +194,119 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 30),
 
-              // --- EVENTS SECTION ---
-              Text(
-                'Events',
-                style: GoogleFonts.hammersmithOne(
-                  color: primaryBlue,
-                  fontSize: 28,
+              // --- EVENTS SECTION WRAPPED IN BOX ---
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16.0), // Εσωτερικό κενό
+                decoration: BoxDecoration(
+                  color: Colors.white, // Λευκό φόντο
+                  borderRadius: BorderRadius.circular(20), // Στρογγυλεμένες γωνίες
+                  border: Border.all(
+                    color: primaryBlue, // Το μπλε περίγραμμα
+                    width: 2, // Πάχος περιγράμματος
+                  ),
+                  // Προαιρετικά: Λίγη σκιά για να ξεχωρίζει
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
                 ),
-              ),
-              const SizedBox(height: 15),
-              
-              const _InfoCard(
-                title: "Beach Sunset Party",
-                subtitle: "Today • Agios Prokopios",
-                icon: Icons.beach_access,
-              ),
-              const SizedBox(height: 10),
-              const _InfoCard(
-                title: "Panigyri",
-                subtitle: "Tomorrow • Chora",
-                icon: Icons.music_note,
-              ),
-              const SizedBox(height: 10),
-              const _InfoCard(
-                title: "Diving Competition",
-                subtitle: "Friday • Agios Prokopios",
-                icon: Icons.scuba_diving,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Τίτλος Events (Μέσα στο κουτί πλέον)
+                    Text(
+                      'Events',
+                      style: GoogleFonts.hammersmithOne(
+                        color: primaryBlue,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    
+                    // Οι κάρτες
+                    const _InfoCard(
+                      title: "Beach Sunset Party",
+                      subtitle: "Today • Agios Prokopios",
+                      icon: Icons.beach_access,
+                    ),
+                    const SizedBox(height: 10),
+                    const _InfoCard(
+                      title: "Panigyri",
+                      subtitle: "Tomorrow • Chora",
+                      icon: Icons.music_note,
+                    ),
+                    const SizedBox(height: 10),
+                    const _InfoCard(
+                      title: "Diving Competition",
+                      subtitle: "Friday • Agios Prokopios",
+                      icon: Icons.scuba_diving,
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 30),
 
-              // --- CHALLENGES SECTION ---
-              Text(
-                'Challenges',
-                style: GoogleFonts.hammersmithOne(
-                  color: primaryBlue,
-                  fontSize: 28,
+              // --- CHALLENGES SECTION WRAPPED IN BOX ---
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: primaryBlue,
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Challenges',
+                      style: GoogleFonts.hammersmithOne(
+                        color: primaryBlue,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    const _InfoCard(
+                      title: "Visit 5 Beaches",
+                      subtitle: "Progress: 2/5",
+                      icon: Icons.flag,
+                    ),
+                    const SizedBox(height: 10),
+                    const _InfoCard(
+                      title: "Photo Collection Master",
+                      subtitle: "Progress: 12/20",
+                      icon: Icons.camera_enhance,
+                    ),
+                    const SizedBox(height: 10),
+                    const _InfoCard(
+                      title: "Taste Local Cuisine",
+                      subtitle: "Progress: 1/10",
+                      icon: Icons.restaurant,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 15),
 
-              const _InfoCard(
-                title: "Visit 5 Beaches",
-                subtitle: "Progress: 2/5",
-                icon: Icons.flag,
-              ),
-              const SizedBox(height: 10),
-              const _InfoCard(
-                title: "Photo Collection Master",
-                subtitle: "Progress: 12/20",
-                icon: Icons.camera_enhance,
-              ),
-              const SizedBox(height: 10),
-              const _InfoCard(
-                title: "Taste Local Cuisine",
-                subtitle: "Progress: 1/10",
-                icon: Icons.restaurant,
-              ),
+              // Extra space at bottom so the Floating Nav Bar doesn't cover the last item
+              const SizedBox(height: 120),
             ],
           ),
         ),
