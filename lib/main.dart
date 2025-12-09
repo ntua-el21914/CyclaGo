@@ -5,6 +5,7 @@ import 'features/home/home_screen.dart';
 import 'features/trips/trips_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/social/island_pass_screen.dart';
+import 'package:cyclago/features/map/map_screen.dart';
 
 //Firebase-Database
 import 'firebase_options.dart';
@@ -64,48 +65,38 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   int _selectedIndex = 0;
-
-  // The 5 Screens
-  final List<Widget> _screens = [
-    const HomeScreen(),                      // Index 0: Home (Naxos Cards)
-    const IslandPassScreen(),                // Index 1: Camera/Post
-    const Center(child: Text("Map Screen")), // Index 2: Map (Big Button)
-    const TripsScreen(),                     // Index 3: Calendar/Trips
-    const Center(child: Text("Profile Screen")), // Index 4: Profile
-  ];
+  bool _isNavBarVisible = true; // 1. New variable to control visibility
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
+  }
+
+  // 2. Function to toggle the bar (we will pass this to MapScreen)
+  void _toggleNavBar(bool isVisible) {
+    if (_isNavBarVisible != isVisible) {
+      setState(() => _isNavBarVisible = isVisible);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // We use a Stack to float the custom Nav Bar over the content
-      body: Stack(
-        children: [
-          // 1. THE SCREEN CONTENT
-          Positioned.fill(
-            child: IndexedStack(
-              index: _selectedIndex,
-              children: _screens,
-            ),
-          ),
+    // 3. Pass the toggle function to MapScreen
+    final List<Widget> screens = [
+      const HomeScreen(), // Index 0
+      const Center(child: Text("Camera Screen")), // Index 1
+      MapScreen(onToggleNavBar: _toggleNavBar), // Index 2: Updated Constructor!
+      const Center(child: Text("Social Screen")), // Index 3
+      const Center(child: Text("Profile Screen")), // Index 4
+    ];
 
-          // 2. THE FLOATING NAV BAR (Bottom)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: CustomNavBar(
-              selectedIndex: _selectedIndex,
-              onTap: _onItemTapped,
-            ),
-          ),
-        ],
-      ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F9FC),
+      extendBody: true,
+      // 4. Wrap NavBar in AnimatedContainer or Visibility
+      bottomNavigationBar: _isNavBarVisible 
+          ? CustomNavBar(selectedIndex: _selectedIndex, onTap: _onItemTapped)
+          : null, // If false, the bar disappears completely
+      body: screens[_selectedIndex],
     );
   }
 }

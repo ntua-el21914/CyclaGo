@@ -50,9 +50,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           .set({
         'uid': userCredential.user!.uid,
         'username': _usernameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'firstName': _usernameController.text.trim(), // Default name
-        'role': 'Cyclist',
+        'email': _emailController.text.trim(), 
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -99,7 +97,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Padding(
                 padding: const EdgeInsets.only(left: 30, top: 30),
                 child: InkWell(
-                  onTap: () => Navigator.pop(context), // Go back to login
+                  onTap: () => Navigator.pop(context),
                   child: Container(
                     width: 50,
                     height: 50,
@@ -112,24 +110,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
 
-              const SizedBox(height: 20),
+        const SizedBox(height: 20), 
 
-              // --- LOGO CENTERED ---
-              Center(
-                child: Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: primaryBlue, width: 2),
-                  ),
-                  child: SvgPicture.asset(
-                    'assets/icons/CyclaGoLogo.svg',
-                    fit: BoxFit.cover, // Changed to cover to fill the container
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.directions_bike, size: 60, color: primaryBlue),
-                  ),
-                ),
-              ),
+        // --- LOGO CENTERED ---
+        Center(
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: primaryBlue, width: 2),
+            ),
+            child: SvgPicture.asset(
+              'assets/icons/CyclaGoLogo.svg',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.directions_bike, size: 60, color: primaryBlue),
+            ),
+          ),
+        ),
 
                 const SizedBox(height: 40),
 
@@ -182,9 +180,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               // --- BOTTOM RIGHT BUTTON ---
               Align(
-                alignment: Alignment.centerRight,
+                alignment: Alignment.center,
                 child: Padding(
-                  padding: const EdgeInsets.only(right: 46, bottom: 40),
+                  padding: const EdgeInsets.only(bottom: 40),
                   child: InkWell(
                     onTap: _isLoading ? null : _handleRegister,
                     child: Container(
