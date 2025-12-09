@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cyclago/features/camera/camera_screen.dart';
-import 'package:cyclago/features/social/chat_screen.dart'; // Ensure you have this file from previous steps
+import 'package:cyclago/features/camera/chat_screen.dart'; // Ensure you have this file from previous steps
 import 'package:cyclago/core/global_data.dart';
 
 class IslandPassScreen extends StatefulWidget {

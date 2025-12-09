@@ -1,10 +1,13 @@
+import 'package:cyclago/features/camera/camera_screen.dart';
+import 'package:cyclago/features/camera/preview_screen.dart';
+import 'package:cyclago/features/camera/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 // Ensure these imports match your folder structure exactly
 import 'features/home/home_screen.dart';
 import 'features/trips/trips_screen.dart';
 import 'features/auth/login_screen.dart';
-import 'features/social/island_pass_screen.dart';
+import 'features/camera/island_pass_screen.dart';
 import 'package:cyclago/features/map/map_screen.dart';
 
 //Firebase-Database
@@ -83,9 +86,9 @@ class _MainScaffoldState extends State<MainScaffold> {
     // 3. Pass the toggle function to MapScreen
     final List<Widget> screens = [
       const HomeScreen(), // Index 0
-      const Center(child: Text("Camera Screen")), // Index 1
+      const IslandPassScreen(), // Index 1
       MapScreen(onToggleNavBar: _toggleNavBar), // Index 2: Updated Constructor!
-      const Center(child: Text("Social Screen")), // Index 3
+      const Center(child: Text("Calendar Screen")), // Index 3
       const Center(child: Text("Profile Screen")), // Index 4
     ];
 
