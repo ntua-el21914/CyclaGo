@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cyclago/main.dart'; // Import MainScaffold to return home
 import 'package:cyclago/core/global_data.dart'; // Import global data to save posts
-//import 'package:cyclago/features/camera/preview_screen.dart';
+import '../../features/social/group_chat_screen.dart'; // <--- ΠΡΟΣΘΕΣΕ ΤΟ
 
 class PreviewScreen extends StatelessWidget {
   final String imagePath;
@@ -70,35 +70,69 @@ class PreviewScreen extends StatelessWidget {
                           children: [
                             // Header inside card: Icon + "Naxos"
                             Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  // Circle Icon - Use captured image
-                                  Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        width: 1,
-                                        color: Colors.grey,
-                                      ),
-                                      image: DecorationImage(
-                                        image: FileImage(File(imagePath)),
-                                        fit: BoxFit.cover,
-                                      ),
+                              padding: const EdgeInsets.all(0), // Βγάζουμε το padding από εδώ για να πιάσει το click παντού
+                              child: InkWell(
+                                // ⬇️ ΕΔΩ ΕΙΝΑΙ Η ΜΑΓΕΙΑ ⬇️
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      // Περνάμε το όνομα "Naxos" στο Chat
+                                      builder: (context) => const GroupChatScreen(islandName: "Naxos"),
                                     ),
+                                  );
+                                },
+                                // Κάνουμε το InkWell στρογγυλεμένο για να ταιριάζει στο Card
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(20),
+                                  topRight: Radius.circular(20),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0), // Το ξαναβάζουμε εδώ μέσα
+                                  child: Row(
+                                    children: [
+                                      // Circle Icon - Use captured image
+                                      Container(
+                                        width: 50,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            width: 1,
+                                            color: Colors.grey,
+                                          ),
+                                          image: DecorationImage(
+                                            image: FileImage(File(imagePath)),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Column( // Το έκανα Column για να δείξω ότι είναι clickable
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Naxos',
+                                            style: GoogleFonts.hammersmithOne(
+                                              color: Colors.black,
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Tap to open group chat',
+                                            style: GoogleFonts.hammersmithOne(
+                                              color: primaryBlue,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const Spacer(),
+                                      const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                                    ],
                                   ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Naxos',
-                                    style: GoogleFonts.hammersmithOne(
-                                      color: Colors.black,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
 

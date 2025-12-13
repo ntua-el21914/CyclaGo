@@ -1,11 +1,7 @@
-import 'package:cyclago/features/camera/camera_screen.dart';
-import 'package:cyclago/features/camera/preview_screen.dart';
-import 'package:cyclago/features/camera/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 // Ensure these imports match your folder structure exactly
 import 'features/home/home_screen.dart';
-import 'features/trips/trips_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/camera/island_pass_screen.dart';
 import 'package:cyclago/features/map/map_screen.dart';
