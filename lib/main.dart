@@ -6,6 +6,7 @@ import 'features/auth/login_screen.dart';
 import 'features/camera/island_pass_screen.dart';
 import 'package:cyclago/features/map/map_screen.dart';
 import 'features/calendar/calendar_screen.dart';
+import 'features/profile/profile_screen.dart';
 
 //Firebase-Database
 import 'firebase_options.dart';
@@ -86,7 +87,7 @@ class _MainScaffoldState extends State<MainScaffold> {
       const IslandPassScreen(), // Index 1
       MapScreen(onToggleNavBar: _toggleNavBar), // Index 2: Updated Constructor!
       const CalendarScreen(), // Index 3
-      const Center(child: Text("Profile Screen")), // Index 4
+      const ProfileScreen(), // Index 4
     ];
 
     return Scaffold(
