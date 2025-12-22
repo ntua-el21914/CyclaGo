@@ -39,36 +39,34 @@ class _VerificationScreenState extends State<VerificationScreen> {
         final jsonResponse = json.decode(responseData);
         final String uploadedUrl = jsonResponse['secure_url'];
 
-        // 2. GET USERNAME FROM FIRESTORE "users" COLLECTION
+        // 2. GET REAL USERNAME FROM FIRESTORE
         final user = FirebaseAuth.instance.currentUser;
-        String username = "Cyclist"; // Default fallback
+        String finalUsername = "Cyclist"; // Default fallback
 
         if (user != null) {
           try {
-            // Fetch the user document using their UID
+            // Read the user's document from the 'users' collection
             DocumentSnapshot userDoc = await FirebaseFirestore.instance
                 .collection('users')
-                .doc(user.uid)
+                .doc(user.uid) 
                 .get();
 
-            if (userDoc.exists && userDoc.data() != null) {
-              // Extract the 'username' field from the document
-              // Using Map access to be safe
+            if (userDoc.exists) {
               final data = userDoc.data() as Map<String, dynamic>;
+              // Grab the 'username' field you showed in the screenshot
               if (data.containsKey('username')) {
-                username = data['username'];
+                finalUsername = data['username']; 
               }
             }
           } catch (e) {
-            print("⚠️ Could not fetch username: $e");
-            // Keep default "Cyclist" if fetch fails
+            print("⚠️ Error fetching username: $e");
           }
         }
 
-        // 3. Save Post to Firestore with the REAL Username
+        // 3. Save Post with the REAL Username
         await FirebaseFirestore.instance.collection('posts').add({
           'imageUrl': uploadedUrl,
-          'username': username, // Now saves "Admin" or whatever is in your DB
+          'username': finalUsername, // Saves "Admin" or whatever is in DB
           'island': 'Naxos',
           'likes': 0,
           'timestamp': FieldValue.serverTimestamp(),
@@ -78,13 +76,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
           // 4. Unlock local gate
           GlobalFeedData.posts.add(widget.imagePath);
 
-          // 5. NAVIGATE TO MAIN APP (Index 1 = Island Pass)
+          // 5. Navigate to Main App (Tab 1 = Island Pass)
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
               builder: (context) => const MainScaffold(initialIndex: 1),
             ),
-            (route) => false,
+            (route) => false, 
           );
         }
       } else {

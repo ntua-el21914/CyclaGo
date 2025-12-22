@@ -1,35 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-// Ensure these imports match your folder structure exactly
+import 'package:geolocator/geolocator.dart'; // <--- Import Geolocator
 import 'features/home/home_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/camera/island_pass_screen.dart';
 import 'package:cyclago/features/map/map_screen.dart';
 import 'features/calendar/calendar_screen.dart';
 import 'features/profile/profile_screen.dart';
-
-//Firebase-Database
 import 'firebase_options.dart';
-
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   try {
-    // Attempt to connect to Firebase
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    
-    // If we get here, it worked!
     print("FIREBASE CONNECTED SUCCESSFULLY");
-    
   } catch (e) {
-    // If it fails, print the error
-    print("❌❌❌ FIREBASE CONNECTION FAILED ❌❌❌");
     print("Error details: $e");
   }
-
   runApp(const CyclaGoApp());
 }
 
@@ -46,17 +35,11 @@ class CyclaGoApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
       ),
-      // -------------------------------------------------------
-      // CHANGE THIS LINE TO TEST DIFFERENT SCREENS:
-      // Use 'const LoginScreen()' to start from Login
-      // Use 'const MainScaffold()' to start straight at the Dashboard
-      // -------------------------------------------------------
       home: const LoginScreen(), 
     );
   }
 }
 
-// --- THE MAIN HUB (With the Custom Floating Nav Bar) ---
 class MainScaffold extends StatefulWidget {
   final int initialIndex;
   const MainScaffold({super.key, this.initialIndex = 0});
@@ -66,21 +49,68 @@ class MainScaffold extends StatefulWidget {
 }
 
 class _MainScaffoldState extends State<MainScaffold> {
-  late int _selectedIndex = 0;
-  bool _isNavBarVisible = true; // 1. New variable to control visibility
+  late int _selectedIndex;
+  bool _isNavBarVisible = true;
+  
+  // --- LOCATION STATE ---
+  bool _isLocationValid = false; 
+  bool _isLoadingLocation = true;
+
+  // Naxos Coordinates
+  final double naxosLat = 37.1032;
+  final double naxosLng = 25.3764;
+  final double allowedRadiusInMeters = 50000; // 50km
 
   @override
-    void initState() {
-      super.initState();
-      // Initialize with the requested index
-      _selectedIndex = widget.initialIndex;
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+    _checkLocationOnLogin(); // <--- Check immediately
+  }
+
+  Future<void> _checkLocationOnLogin() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _isLoadingLocation = false);
+          return;
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _isLoadingLocation = false);
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      double distanceInMeters = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        naxosLat,
+        naxosLng,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLocationValid = distanceInMeters <= allowedRadiusInMeters;
+          _isLoadingLocation = false;
+        });
+      }
+    } catch (e) {
+      print("Location Error: $e");
+      if (mounted) setState(() => _isLoadingLocation = false);
     }
+  }
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
   }
 
-  // 2. Function to toggle the bar (we will pass this to MapScreen)
   void _toggleNavBar(bool isVisible) {
     if (_isNavBarVisible != isVisible) {
       setState(() => _isNavBarVisible = isVisible);
@@ -89,28 +119,30 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    // 3. Pass the toggle function to MapScreen
     final List<Widget> screens = [
-      const HomeScreen(), // Index 0
-      const IslandPassScreen(), // Index 1
-      MapScreen(onToggleNavBar: _toggleNavBar), // Index 2: Updated Constructor!
-      const CalendarScreen(), // Index 3
-      const ProfileScreen(), // Index 4
+      const HomeScreen(),
+      // PASS THE LOCATION STATUS HERE
+      IslandPassScreen(isLocationValid: _isLocationValid), 
+      MapScreen(onToggleNavBar: _toggleNavBar),
+      const CalendarScreen(),
+      const ProfileScreen(),
     ];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9FC),
       extendBody: true,
-      // 4. Wrap NavBar in AnimatedContainer or Visibility
       bottomNavigationBar: _isNavBarVisible 
           ? CustomNavBar(selectedIndex: _selectedIndex, onTap: _onItemTapped)
-          : null, // If false, the bar disappears completely
-      body: screens[_selectedIndex],
+          : null,
+      // If still loading GPS, show spinner, otherwise show screen
+      body: _isLoadingLocation 
+          ? const Center(child: CircularProgressIndicator()) 
+          : screens[_selectedIndex],
     );
   }
 }
 
-// --- YOUR CUSTOM NAV BAR WIDGET ---
+// ... (Your CustomNavBar class remains exactly the same as you provided)
 class CustomNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onTap;
@@ -132,7 +164,6 @@ class CustomNavBar extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
         children: [
-          // A. The White Pill Container
           Container(
             height: 70,
             margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
@@ -153,14 +184,12 @@ class CustomNavBar extends StatelessWidget {
               children: [
                 _NavBarItem(icon: Icons.home_filled, index: 0, selectedIndex: selectedIndex, onTap: onTap),
                 _NavBarItem(icon: Icons.camera_alt_rounded, index: 1, selectedIndex: selectedIndex, onTap: onTap),
-                const SizedBox(width: 60), // Space for Map Button
+                const SizedBox(width: 60), 
                 _NavBarItem(icon: Icons.calendar_today_rounded, index: 3, selectedIndex: selectedIndex, onTap: onTap),
                 _NavBarItem(icon: Icons.person_rounded, index: 4, selectedIndex: selectedIndex, onTap: onTap),
               ],
             ),
           ),
-
-          // B. The Floating Map Button
           Positioned(
             bottom: 45, 
             child: GestureDetector(

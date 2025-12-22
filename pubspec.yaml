@@ -41,7 +41,7 @@ dependencies:
   path: ^1.9.0
 
   # 2. Subsystem: Location & Maps (No API key required with flutter_map)
-  geolocator: ^10.1.0
+  geolocator: ^14.0.2
   flutter_map: ^8.2.2      # Easier than Google Maps for assignments
   latlong2: ^0.9.1
 
