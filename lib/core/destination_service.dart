@@ -18,6 +18,7 @@ class Destination {
     required this.lng,
     this.description,
     this.imageUrl,
+    required this.category,
     this.extras,
   });
 
