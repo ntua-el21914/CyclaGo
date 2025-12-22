@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cyclago/core/destination_service.dart';
 
 class MapScreen extends StatefulWidget {
-  // 1. Accept the function from MainScaffold
   final Function(bool) onToggleNavBar;
 
   const MapScreen({super.key, required this.onToggleNavBar});
@@ -14,33 +14,161 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  // 2. Map Controller allows us to move the map programmatically
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
-
-  // Coordinates
-  final LatLng _naxosChora = const LatLng(37.1032, 25.3764);
-  final LatLng _filoti = const LatLng(37.0519, 25.4967);
-  final LatLng _agiosProkopios = const LatLng(37.0744, 25.3562);
-
+  final FocusNode _searchFocusNode = FocusNode();
+  
   final Color primaryBlue = const Color(0xFF1269C7);
-
-  // 3. Search Logic
-  void _handleSearch() {
-    String query = _searchController.text.toLowerCase().trim();
-    
-    // Simple logic: If user types "naxos", move to Naxos
-    if (query.contains("naxos")) {
-      _mapController.move(_naxosChora, 12.0); // Move map to Chora
-      FocusScope.of(context).unfocus(); // Close keyboard
-    } else if (query.contains("filoti")) {
-      _mapController.move(_filoti, 14.0);
-      FocusScope.of(context).unfocus();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Location not found yet! Try 'Naxos'")),
-      );
+  
+  // State
+  String? _selectedIsland;
+  List<String> _suggestions = [];
+  bool _showSuggestions = false;
+  bool _isExploreExpanded = false;
+  int _selectedCategory = 0; // 0=beaches, 1=restaurants, 2=landmarks
+  bool _isLoading = false;
+  
+  // Destinations from Firebase
+  List<Destination> _beaches = [];
+  List<Destination> _restaurants = [];
+  List<Destination> _landmarks = [];
+  
+  // All 23 Cyclades islands
+  static const List<String> _islands = [
+    'Amorgos', 'Anafi', 'Antiparos', 'Delos', 'Donoussa',
+    'Folegandros', 'Ios', 'Iraklia', 'Kea', 'Kimolos',
+    'Koufonisia', 'Kythnos', 'Milos', 'Mykonos', 'Naxos',
+    'Paros', 'Santorini', 'Schinoussa', 'Serifos', 'Sifnos',
+    'Sikinos', 'Syros', 'Tinos',
+  ];
+  
+  // Island centers for map positioning
+  static const Map<String, LatLng> _islandCenters = {
+    'amorgos': LatLng(36.8333, 25.8833),
+    'anafi': LatLng(36.3567, 25.7823),
+    'antiparos': LatLng(37.0378, 25.0789),
+    'delos': LatLng(37.3956, 25.2667),
+    'donoussa': LatLng(36.9289, 25.8089),
+    'folegandros': LatLng(36.6214, 24.9206),
+    'ios': LatLng(36.7235, 25.2829),
+    'iraklia': LatLng(36.8456, 25.4523),
+    'kea': LatLng(37.6289, 24.3289),
+    'kimolos': LatLng(36.7945, 24.5712),
+    'koufonisia': LatLng(36.9356, 25.5923),
+    'kythnos': LatLng(37.3978, 24.4301),
+    'milos': LatLng(36.7452, 24.4275),
+    'mykonos': LatLng(37.4467, 25.3289),
+    'naxos': LatLng(37.05, 25.45),
+    'paros': LatLng(37.0853, 25.1522),
+    'santorini': LatLng(36.3932, 25.4615),
+    'schinoussa': LatLng(36.8734, 25.5089),
+    'serifos': LatLng(37.1478, 24.4823),
+    'sifnos': LatLng(36.9678, 24.6923),
+    'sikinos': LatLng(36.6878, 25.1089),
+    'syros': LatLng(37.4415, 24.9411),
+    'tinos': LatLng(37.5404, 25.1630),
+  };
+  
+  LatLng get _currentCenter {
+    if (_selectedIsland == null) return const LatLng(37.05, 25.45); // Default Naxos
+    return _islandCenters[_selectedIsland!.toLowerCase()] ?? const LatLng(37.05, 25.45);
+  }
+  
+  List<Destination> get _currentDestinations {
+    switch (_selectedCategory) {
+      case 0: return _beaches;
+      case 1: return _restaurants;
+      case 2: return _landmarks;
+      default: return _beaches;
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(() {
+      if (!_searchFocusNode.hasFocus) {
+        setState(() => _showSuggestions = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+  
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase().trim();
+    if (query.isEmpty) {
+      setState(() {
+        _suggestions = [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+    
+    setState(() {
+      _suggestions = _islands
+          .where((island) => island.toLowerCase().contains(query))
+          .toList();
+      _showSuggestions = _suggestions.isNotEmpty;
+    });
+  }
+  
+  void _selectIsland(String island) {
+    setState(() {
+      _selectedIsland = island;
+      _searchController.text = island;
+      _showSuggestions = false;
+      _isExploreExpanded = true;
+      _isLoading = true;
+    });
+    
+    // Move map to island
+    final center = _islandCenters[island.toLowerCase()];
+    if (center != null) {
+      _mapController.move(center, 12.0);
+    }
+    
+    FocusScope.of(context).unfocus();
+    widget.onToggleNavBar(false); // Hide nav bar
+    
+    // Load destinations from Firebase
+    _loadDestinations(island);
+  }
+  
+  Future<void> _loadDestinations(String island) async {
+    try {
+      final beaches = await DestinationService.getBeaches(island);
+      final restaurants = await DestinationService.getRestaurants(island);
+      final landmarks = await DestinationService.getLandmarks(island);
+      
+      if (mounted) {
+        setState(() {
+          _beaches = beaches;
+          _restaurants = restaurants;
+          _landmarks = landmarks;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+  
+  void _closeExplorePanel() {
+    setState(() {
+      _isExploreExpanded = false;
+      _selectedIsland = null;
+      _searchController.clear();
+    });
+    widget.onToggleNavBar(true); // Show nav bar again
   }
 
   @override
@@ -51,147 +179,419 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           // THE MAP
           FlutterMap(
-            mapController: _mapController, // <--- Attach controller here
+            mapController: _mapController,
             options: MapOptions(
-              initialCenter: _naxosChora,
-              initialZoom: 11.5,
-              interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
-              // Optional: Show nav bar again if they tap the map background
-              onTap: (_, __) => widget.onToggleNavBar(true), 
+              initialCenter: const LatLng(37.05, 25.45), // Naxos default
+              initialZoom: 9.5, // Zoomed out to see all Cyclades
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
+              onTap: (_, __) {
+                setState(() => _showSuggestions = false);
+                if (!_isExploreExpanded) {
+                  widget.onToggleNavBar(true);
+                }
+              },
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.cyclago.app',
               ),
-              MarkerLayer(
-                markers: [
-                  _buildCustomMarker(_naxosChora, "Chora", "Main Port & Capital"),
-                  _buildCustomMarker(_filoti, "Filoti", "Mountain Village"),
-                  _buildCustomMarker(_agiosProkopios, "Prokopios", "Crystal Water Beach"),
-                ],
-              ),
+              // Show markers for current destinations
+              if (_selectedIsland != null && !_isLoading)
+                MarkerLayer(
+                  markers: _currentDestinations.map((dest) => 
+                    Marker(
+                      point: LatLng(dest.lat, dest.lng),
+                      width: 80,
+                      height: 80,
+                      child: GestureDetector(
+                        onTap: () => _showDestinationDetails(dest),
+                        child: Column(
+                          children: [
+                            Icon(Icons.location_on, color: primaryBlue, size: 40),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                dest.name,
+                                style: GoogleFonts.hammersmithOne(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ).toList(),
+                ),
             ],
           ),
 
-          // SEARCH BAR
+          // SEARCH BAR + AUTOCOMPLETE
           Positioned(
             top: 60,
             left: 35,
             right: 35,
-            child: Container(
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: primaryBlue, width: 1),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
-                ],
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 20),
-                  InkWell(
-                    onTap: _handleSearch, // Trigger search on icon click
-                    child: Icon(Icons.search, color: primaryBlue, size: 30),
+            child: Column(
+              children: [
+                // Search Bar
+                Container(
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: primaryBlue, width: 1),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
+                    ],
                   ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      // Trigger search on "Enter" key
-                      onSubmitted: (_) => _handleSearch(),
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        hintStyle: GoogleFonts.hammersmithOne(
-                          color: Colors.black,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w400,
+                  child: Row(
+                    children: [
+                      // Back button when explore is open
+                      if (_isExploreExpanded)
+                        IconButton(
+                          icon: Icon(Icons.arrow_back_ios, color: primaryBlue),
+                          onPressed: _closeExplorePanel,
+                        )
+                      else
+                        const SizedBox(width: 20),
+                      
+                      Icon(Icons.search, color: primaryBlue, size: 28),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          onTap: () => setState(() => _showSuggestions = _suggestions.isNotEmpty),
+                          decoration: InputDecoration(
+                            hintText: 'Search island...',
+                            hintStyle: GoogleFonts.hammersmithOne(
+                              color: Colors.grey,
+                              fontSize: 20,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                          style: GoogleFonts.hammersmithOne(fontSize: 20),
                         ),
-                        border: InputBorder.none,
                       ),
-                      style: GoogleFonts.hammersmithOne(fontSize: 24),
+                      if (_searchController.text.isNotEmpty)
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.grey),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _showSuggestions = false);
+                            // Also close explore panel when clearing search
+                            if (_isExploreExpanded) {
+                              _closeExplorePanel();
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                
+                // Autocomplete Suggestions Dropdown
+                if (_showSuggestions)
+                  Container(
+                    margin: const EdgeInsets.only(top: 5),
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: primaryBlue, width: 1),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
+                      ],
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: _suggestions.length,
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          leading: Icon(Icons.location_on, color: primaryBlue),
+                          title: Text(
+                            _suggestions[index],
+                            style: GoogleFonts.hammersmithOne(fontSize: 18),
+                          ),
+                          onTap: () => _selectIsland(_suggestions[index]),
+                        );
+                      },
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
+
+          // EXPLORE PANEL (Bottom) - shows when island selected
+          if (_selectedIsland != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                height: _isExploreExpanded ? 320 : 60,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  border: Border.all(color: primaryBlue, width: 1),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x3F000000), blurRadius: 10, offset: Offset(0, -2))
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Drag handle - toggles collapse
+                    GestureDetector(
+                      onTap: () => setState(() => _isExploreExpanded = !_isExploreExpanded),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.only(top: 8, bottom: 4),
+                        child: Center(
+                          child: Container(
+                            width: 40,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[400],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    // Header (only when expanded)
+                    if (_isExploreExpanded)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: _closeExplorePanel,
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.black, width: 3),
+                              ),
+                              child: const Icon(Icons.close, size: 20),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            'Explore',
+                            style: GoogleFonts.hammersmithOne(
+                              fontSize: 28,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const Spacer(),
+                          const SizedBox(width: 36), // Balance
+                        ],
+                      ),
+                    ),
+                    
+                    // Category buttons (only when expanded)
+                    if (_isExploreExpanded)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildCategoryButton(0, Icons.beach_access),
+                          _buildCategoryButton(1, Icons.restaurant),
+                          _buildCategoryButton(2, Icons.account_balance),
+                        ],
+                      ),
+                    ),
+                    if (_isExploreExpanded) const SizedBox(height: 10),
+                    
+                    // Destinations list (only when expanded)
+                    if (_isExploreExpanded)
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: primaryBlue,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                        ),
+                        child: _isLoading
+                            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                            : _currentDestinations.isEmpty
+                                ? Center(
+                                    child: Text(
+                                      'No destinations found',
+                                      style: GoogleFonts.hammersmithOne(color: Colors.white70, fontSize: 16),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+                                    itemCount: _currentDestinations.length,
+                                    itemBuilder: (context, index) {
+                                      final dest = _currentDestinations[index];
+                                      return GestureDetector(
+                                        onTap: () {
+                                          _mapController.move(LatLng(dest.lat, dest.lng), 14.0);
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(25),
+                                            border: Border.all(color: primaryBlue.withOpacity(0.3), width: 1),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  dest.name,
+                                                  style: GoogleFonts.hammersmithOne(
+                                                    fontSize: 18,
+                                                    color: primaryBlue,
+                                                  ),
+                                                ),
+                                              ),
+                                              Icon(Icons.arrow_forward_ios, color: primaryBlue, size: 18),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
-
-  Marker _buildCustomMarker(LatLng point, String label, String description) {
-    return Marker(
-      point: point,
-      width: 80,
-      height: 80,
-      child: GestureDetector(
-        onTap: () {
-          // 4. HIDE NAV BAR when pin is clicked
-          widget.onToggleNavBar(false);
-          _showLocationDetails(label, description);
-        },
-        child: Column(
-          children: [
-            Icon(Icons.location_on, color: primaryBlue, size: 45),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                label,
-                style: GoogleFonts.hammersmithOne(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+  
+  Widget _buildCategoryButton(int index, IconData icon) {
+    bool isSelected = _selectedCategory == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCategory = index),
+      child: Container(
+        width: 55,
+        height: 55,
+        decoration: BoxDecoration(
+          color: isSelected ? primaryBlue : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.black, width: 1),
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? Colors.white : Colors.black,
+          size: 28,
         ),
       ),
     );
   }
-
-  void _showLocationDetails(String title, String description) {
+  
+  void _showDestinationDetails(Destination dest) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true, // Allows sheet to be taller if needed
+      isScrollControlled: true,
       builder: (context) {
         return Container(
-          height: 300,
+          height: 380,
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
               const SizedBox(height: 10),
-              Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10))),
-              const SizedBox(height: 20),
-              Text(title, style: GoogleFonts.hammersmithOne(fontSize: 32, color: primaryBlue)),
-              Text(description, style: GoogleFonts.hammersmithOne(fontSize: 16, color: Colors.grey)),
-              const SizedBox(height: 20),
-              const Divider(),
-              Expanded(
-                child: Center(
-                  child: Text("User Posts Here...", style: GoogleFonts.hammersmithOne(color: Colors.grey)),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 15),
+              Text(
+                dest.name,
+                style: GoogleFonts.hammersmithOne(fontSize: 28, color: primaryBlue),
+              ),
+              const SizedBox(height: 15),
+              // Image from Cloudinary
+              if (dest.imageUrl != null && dest.imageUrl!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  height: 180,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: primaryBlue, width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(13),
+                    child: Image.network(
+                      dest.imageUrl!,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            color: primaryBlue,
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Icon(Icons.image_not_supported, color: Colors.grey[400], size: 50),
+                        );
+                      },
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  height: 180,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Center(
+                    child: Icon(Icons.image, color: Colors.grey[400], size: 50),
+                  ),
+                ),
+              const SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  dest.description ?? '',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.hammersmithOne(fontSize: 14, color: Colors.grey[600]),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
         );
       },
-    ).whenComplete(() {
-      // 5. SHOW NAV BAR AGAIN when bottom sheet closes
-      widget.onToggleNavBar(true);
-    });
+    );
   }
 }
