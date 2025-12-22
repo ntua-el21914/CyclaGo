@@ -628,15 +628,13 @@ class _TripMapScreenState extends State<TripMapScreen> {
                                     ),
                                   ),
                                 )
-                              : Column(
-                                  children: [
-                                    // Selected spots (reorderable)
+                              : CustomScrollView(
+                                  slivers: [
+                                    // Selected spots (reorderable) - scrolls with list
                                     if (_selectedCount > 0)
-                                      Container(
-                                        constraints: BoxConstraints(maxHeight: _selectedCount * 80.0),
-                                        child: ReorderableListView.builder(
-                                          shrinkWrap: true,
-                                          padding: const EdgeInsets.only(top: 10),
+                                      SliverPadding(
+                                        padding: const EdgeInsets.only(top: 10),
+                                        sliver: SliverReorderableList(
                                           itemCount: _selectedCount,
                                           onReorder: _onReorder,
                                           proxyDecorator: (child, index, animation) => Material(
@@ -663,22 +661,24 @@ class _TripMapScreenState extends State<TripMapScreen> {
                                           },
                                         ),
                                       ),
-                                    // Unselected spots
-                                    Expanded(
-                                      child: ListView.builder(
-                                        padding: EdgeInsets.only(top: _selectedCount > 0 ? 5 : 10),
-                                        itemCount: _sortedDestinations.length - _selectedCount,
-                                        itemBuilder: (context, index) {
-                                          final destination = _sortedDestinations[_selectedCount + index];
-                                          return _buildDestinationCard(
-                                            key: ValueKey(destination.id),
-                                            id: destination.id,
-                                            index: null,
-                                            number: null,
-                                            name: destination.name,
-                                            isSelected: false,
-                                          );
-                                        },
+                                    // Unselected spots - continues in same scroll
+                                    SliverPadding(
+                                      padding: EdgeInsets.only(top: _selectedCount > 0 ? 5 : 10, bottom: 20),
+                                      sliver: SliverList(
+                                        delegate: SliverChildBuilderDelegate(
+                                          (context, index) {
+                                            final destination = _sortedDestinations[_selectedCount + index];
+                                            return _buildDestinationCard(
+                                              key: ValueKey(destination.id),
+                                              id: destination.id,
+                                              index: null,
+                                              number: null,
+                                              name: destination.name,
+                                              isSelected: false,
+                                            );
+                                          },
+                                          childCount: _sortedDestinations.length - _selectedCount,
+                                        ),
                                       ),
                                     ),
                                   ],

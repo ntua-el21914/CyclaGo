@@ -32,6 +32,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2),
+          child: Container(
+            color: primaryBlue,
+            height: 2,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -46,7 +53,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 color: Colors.white,
                 shape: RoundedRectangleBorder(
                   side: const BorderSide(
-                    width: 3,
+                    width: 2,
                     color: Color(0xFF1269C7),
                   ),
                   borderRadius: BorderRadius.circular(25),
@@ -94,7 +101,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           color: Colors.white,
                           shape: RoundedRectangleBorder(
                             side: const BorderSide(
-                              width: 3,
+                              width: 2,
                               color: Color(0xFF1269C7),
                             ),
                             borderRadius: BorderRadius.circular(30),

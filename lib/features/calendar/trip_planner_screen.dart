@@ -499,50 +499,28 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9FC),
-      // Header bar
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(120),
-        child: Container(
-          width: double.infinity,
-          height: 120,
-          clipBehavior: Clip.antiAlias,
-          decoration: const ShapeDecoration(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                width: 1,
-                color: Color(0xFF1269C7),
-              ),
-            ),
+      // Header bar - matching calendar screen style
+      appBar: AppBar(
+        title: Text(
+          'Trip Planner',
+          style: GoogleFonts.hammersmithOne(
+            color: Colors.black,
+            fontSize: 32,
+            fontWeight: FontWeight.w400,
           ),
-          child: Stack(
-            children: [
-              // Title - centered
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 44,
-                child: Center(
-                  child: Text(
-                    'Trip Planner',
-                    style: GoogleFonts.hammersmithOne(
-                      color: Colors.black,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-              // Back button
-              Positioned(
-                left: 15,
-                top: 37,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: primaryBlue),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ],
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: primaryBlue),
+          onPressed: () => Navigator.pop(context),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2),
+          child: Container(
+            color: primaryBlue,
+            height: 2,
           ),
         ),
       ),
