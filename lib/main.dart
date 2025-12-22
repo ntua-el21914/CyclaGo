@@ -58,15 +58,23 @@ class CyclaGoApp extends StatelessWidget {
 
 // --- THE MAIN HUB (With the Custom Floating Nav Bar) ---
 class MainScaffold extends StatefulWidget {
-  const MainScaffold({super.key});
+  final int initialIndex;
+  const MainScaffold({super.key, this.initialIndex = 0});
 
   @override
   State<MainScaffold> createState() => _MainScaffoldState();
 }
 
 class _MainScaffoldState extends State<MainScaffold> {
-  int _selectedIndex = 0;
+  late int _selectedIndex = 0;
   bool _isNavBarVisible = true; // 1. New variable to control visibility
+
+  @override
+    void initState() {
+      super.initState();
+      // Initialize with the requested index
+      _selectedIndex = widget.initialIndex;
+    }
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
