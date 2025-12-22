@@ -14,7 +14,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  String _displayName = "Traveller"; // Default όνομα μέχρι να φορτώσει
+   String _displayName = "";
 
   @override
   void initState() {
@@ -36,8 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final userData = querySnapshot.docs.first.data();
         if (mounted) {
           setState(() {
-            // Δείξε το firstName, αλλιώς το username, αλλιώς "Cyclist"
-            _displayName = userData['username'] ?? userData['email'] ?? "Traveller";
+            // Δείξε το firstName, αλλιώς το username
+            _displayName = userData['username'] ?? userData['email'] ?? '';
           }
           );
         }
@@ -369,7 +369,7 @@ class _InfoCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(icon, size: 20, color: primaryBlue),
+              Icon(icon, size: 14, color: primaryBlue),
             ],
           ),
         ],

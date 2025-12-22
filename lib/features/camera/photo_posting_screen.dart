@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:convert'; // Για το JSON decode
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // <--- ΝΕΟ
+import 'package:firebase_auth/firebase_auth.dart';     // <--- ΝΕΟ
 import 'package:http/http.dart' as http; // Για το Upload
 import 'preview_screen.dart'; 
 
@@ -22,9 +24,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   // --- ΛΟΓΙΚΗ UPLOAD ---
   Future<void> _uploadAndContinue() async {
-    setState(() => _isUploading = true); // Ξεκινάει το loading
+    setState(() => _isUploading = true);
 
     try {
+      // --- 1. UPLOAD TO CLOUDINARY ---
       final url = Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");
       final request = http.MultipartRequest('POST', url)
         ..fields['upload_preset'] = uploadPreset
@@ -36,12 +39,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
       if (response.statusCode == 200) {
         final responseData = await response.stream.bytesToString();
         final jsonResponse = json.decode(responseData);
-        final String uploadedUrl = jsonResponse['secure_url'];
+        final String uploadedUrl = jsonResponse['secure_url']; // Το Link της φώτο
         
-        print("✅ Upload Success! URL: $uploadedUrl");
+        print("✅ Cloudinary Success! URL: $uploadedUrl");
+
+        // --- 2. SAVE TO FIRESTORE (Το νέο κομμάτι) ---
+        // Βρίσκουμε ποιος είναι ο χρήστης
+        final user = FirebaseAuth.instance.currentUser;
+        final String username = user?.displayName ?? "Cyclist"; // Αν δεν έχει όνομα, βάλε "Cyclist"
+
+        await FirebaseFirestore.instance.collection('posts').add({
+          'imageUrl': uploadedUrl,      // Το Link από το Cloudinary
+          'username': username,         // Το όνομα του χρήστη
+          'island': 'Naxos',            // Hardcoded για τώρα
+          'likes': 0,                   // Αρχικά likes
+          'timestamp': FieldValue.serverTimestamp(), // Η ώρα που ανέβηκε
+        });
+        
+        print("✅ Firestore Success! Post saved.");
 
         if (mounted) {
-          // Επιτυχία! Πάμε στο Preview Screen
+          // --- 3. GO TO PREVIEW ---
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -50,18 +68,18 @@ class _VerificationScreenState extends State<VerificationScreen> {
           );
         }
       } else {
-        print("❌ Upload Failed: ${response.statusCode}");
-        throw Exception("Failed to upload");
+        print("❌ Cloudinary Failed: ${response.statusCode}");
+        throw Exception("Failed to upload to Cloudinary");
       }
     } catch (e) {
       print("❌ Error: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Upload Error: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
         );
       }
     } finally {
-      if (mounted) setState(() => _isUploading = false); // Σταματάει το loading
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
