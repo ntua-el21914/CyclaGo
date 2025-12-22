@@ -20,10 +20,6 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isCameraInitialized = false;
   // bool _isUploading = false; // Δεν χρειάζεται πια εδώ
 
-  // --- ☁️ CLOUDINARY SETTINGS ☁️ ---
-  final String cloudName = "dkeski4ji";
-  final String uploadPreset = "CyclagoUserImages";
-
   @override
   void initState() {
     super.initState();
