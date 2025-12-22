@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cyclago/core/destination_service.dart';
+import 'package:cyclago/core/trip_service.dart';
 
 class TripMapScreen extends StatefulWidget {
+  final String? tripId;
   final String tripName;
   final String islandName;
+  final DateTime startDate;
+  final DateTime endDate;
 
   const TripMapScreen({
     super.key,
+    this.tripId,
     required this.tripName,
     required this.islandName,
+    required this.startDate,
+    required this.endDate,
   });
 
   @override
@@ -21,25 +29,167 @@ class _TripMapScreenState extends State<TripMapScreen> {
   final MapController _mapController = MapController();
   final Color primaryBlue = const Color(0xFF1269C7);
   
-  // Center of Naxos
-  final LatLng _naxosCenter = const LatLng(37.05, 25.45);
+  // Island centers for map positioning - all 23 Cyclades islands
+  static const Map<String, LatLng> _islandCenters = {
+    'amorgos': LatLng(36.8333, 25.8833),
+    'anafi': LatLng(36.3567, 25.7823),
+    'antiparos': LatLng(37.0378, 25.0789),
+    'delos': LatLng(37.3956, 25.2667),
+    'donoussa': LatLng(36.9289, 25.8089),
+    'folegandros': LatLng(36.6214, 24.9206),
+    'ios': LatLng(36.7235, 25.2829),
+    'iraklia': LatLng(36.8456, 25.4523),
+    'kea': LatLng(37.6289, 24.3289),
+    'kimolos': LatLng(36.7945, 24.5712),
+    'koufonisia': LatLng(36.9356, 25.5923),
+    'kythnos': LatLng(37.3978, 24.4301),
+    'milos': LatLng(36.7452, 24.4275),
+    'mykonos': LatLng(37.4467, 25.3289),
+    'naxos': LatLng(37.05, 25.45),
+    'paros': LatLng(37.0853, 25.1522),
+    'santorini': LatLng(36.3932, 25.4615),
+    'schinoussa': LatLng(36.8734, 25.5089),
+    'serifos': LatLng(37.1478, 24.4823),
+    'sifnos': LatLng(36.9678, 24.6923),
+    'sikinos': LatLng(36.6878, 25.1089),
+    'syros': LatLng(37.4415, 24.9411),
+    'tinos': LatLng(37.5404, 25.1630),
+  };
   
-  int _selectedCategory = 0; // 0 = beaches, 1 = restaurants, 2 = landmarks
+  LatLng get _mapCenter {
+    final key = widget.islandName.toLowerCase();
+    return _islandCenters[key] ?? const LatLng(37.05, 25.45);
+  }
+  
+  int _selectedCategory = 0;
   int _selectedDay = 1;
+  bool _isDayDropdownOpen = false;
+  bool _isLoading = true;
+  bool _isPanelExpanded = true;
+  String? _highlightedDestinationId;
   
-  // Sample destinations list
-  final List<Map<String, dynamic>> _destinations = [
-    {'name': 'Plaka Beach', 'lat': 37.0456, 'lng': 25.3632},
-    {'name': 'Agios Prokopios Beach', 'lat': 37.0744, 'lng': 25.3562},
-    {'name': 'Agia Anna Beach', 'lat': 37.0567, 'lng': 25.3589},
-    {'name': 'Mikri Vigla Beach', 'lat': 37.0234, 'lng': 25.3712},
-    {'name': 'Saint George Beach', 'lat': 37.0912, 'lng': 25.3645},
-    {'name': 'Cedar Forest of Alyko', 'lat': 37.0123, 'lng': 25.3801},
-    {'name': 'Kastraki Beach', 'lat': 37.0089, 'lng': 25.3756},
-    {'name': 'Paralía Alykó', 'lat': 37.0056, 'lng': 25.3823},
-    {'name': 'Paralia Panormos', 'lat': 36.9987, 'lng': 25.3901},
-    {'name': 'Hawaii Beach', 'lat': 36.9923, 'lng': 25.3945},
-  ];
+  List<Map<String, dynamic>> _tripDays = [];
+  
+  List<Destination> _beaches = [];
+  List<Destination> _restaurants = [];
+  List<Destination> _landmarks = [];
+  
+  // Selected destinations per day per category
+  final Map<String, List<String>> _selectedSpots = {};
+  
+  String get _selectionKey => '${_selectedDay}_$_selectedCategory';
+  List<String> get _currentSelectedIds => _selectedSpots[_selectionKey] ?? [];
+  
+  List<Destination> get _currentDestinations {
+    switch (_selectedCategory) {
+      case 0: return _beaches;
+      case 1: return _restaurants;
+      case 2: return _landmarks;
+      default: return _beaches;
+    }
+  }
+  
+  List<Destination> get _sortedDestinations {
+    final destinations = _currentDestinations;
+    if (destinations.isEmpty) return [];
+    
+    final selectedIds = _currentSelectedIds;
+    final selected = <Destination>[];
+    final unselected = <Destination>[];
+    
+    for (final id in selectedIds) {
+      final dest = destinations.where((d) => d.id == id);
+      if (dest.isNotEmpty) selected.add(dest.first);
+    }
+    for (final dest in destinations) {
+      if (!selectedIds.contains(dest.id)) unselected.add(dest);
+    }
+    return [...selected, ...unselected];
+  }
+  
+  int get _selectedCount => _currentSelectedIds.length;
+  
+  void _toggleSelection(String id) {
+    setState(() {
+      final key = _selectionKey;
+      if (!_selectedSpots.containsKey(key)) _selectedSpots[key] = [];
+      if (_selectedSpots[key]!.contains(id)) {
+        _selectedSpots[key]!.remove(id);
+      } else {
+        _selectedSpots[key]!.add(id);
+      }
+    });
+    _saveSelections();
+  }
+  
+  void _onReorder(int oldIndex, int newIndex) {
+    if (oldIndex >= _selectedCount || newIndex > _selectedCount) return;
+    setState(() {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final key = _selectionKey;
+      if (_selectedSpots.containsKey(key)) {
+        final item = _selectedSpots[key]!.removeAt(oldIndex);
+        _selectedSpots[key]!.insert(newIndex, item);
+      }
+    });
+    _saveSelections();
+  }
+  
+  Future<void> _loadSelections() async {
+    if (widget.tripId == null) return;
+    try {
+      final selections = await TripService.getSpotSelections(widget.tripId!);
+      setState(() {
+        _selectedSpots.clear();
+        _selectedSpots.addAll(selections);
+      });
+    } catch (e) {
+      debugPrint('Error loading selections: $e');
+    }
+  }
+  
+  Future<void> _saveSelections() async {
+    if (widget.tripId == null) return;
+    try {
+      await TripService.saveSpotSelections(tripId: widget.tripId!, selections: _selectedSpots);
+    } catch (e) {
+      debugPrint('Error saving selections: $e');
+    }
+  }
+  
+  @override
+  void initState() {
+    super.initState();
+    _initializeDays();
+    _loadDestinations();
+    _loadSelections();
+  }
+  
+  void _initializeDays() {
+    final tripLength = widget.endDate.difference(widget.startDate).inDays + 1;
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    _tripDays = List.generate(tripLength, (index) {
+      final date = widget.startDate.add(Duration(days: index));
+      return {'day': index + 1, 'name': weekdays[date.weekday - 1], 'date': date};
+    });
+  }
+
+  Future<void> _loadDestinations() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final allDestinations = await DestinationService.getAllDestinations(widget.islandName);
+      setState(() {
+        _beaches = allDestinations['beaches'] ?? [];
+        _restaurants = allDestinations['restaurants'] ?? [];
+        _landmarks = allDestinations['landmarks'] ?? [];
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading destinations: $e');
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +201,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _naxosCenter,
+              initialCenter: _mapCenter,
               initialZoom: 11.0,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
@@ -63,27 +213,56 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 userAgentPackageName: 'com.cyclago.app',
               ),
               MarkerLayer(
-                markers: _destinations.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  var dest = entry.value;
+                markers: _currentDestinations.map((dest) {
+                  final isSelected = _currentSelectedIds.contains(dest.id);
+                  final isHighlighted = _highlightedDestinationId == dest.id;
+                  final selectionIndex = isSelected 
+                      ? _currentSelectedIds.indexOf(dest.id) + 1 
+                      : null;
+                  
+                  // Determine marker color
+                  Color markerColor;
+                  if (isSelected) {
+                    markerColor = primaryBlue;
+                  } else if (isHighlighted) {
+                    markerColor = Colors.green;
+                  } else {
+                    markerColor = Colors.grey;
+                  }
+                  
                   return Marker(
-                    point: LatLng(dest['lat'], dest['lng']),
-                    width: 40,
-                    height: 40,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: primaryBlue,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: GoogleFonts.hammersmithOne(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    point: LatLng(dest.lat, dest.lng),
+                    width: 50,
+                    height: 50,
+                    child: GestureDetector(
+                      onTap: () => _toggleSelection(dest.id),
+                      onLongPress: () {
+                        setState(() => _highlightedDestinationId = dest.id);
+                      },
+                      onLongPressEnd: (_) {
+                        setState(() => _highlightedDestinationId = null);
+                      },
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color: markerColor,
+                            size: 50,
                           ),
-                        ),
+                          if (isSelected && selectionIndex != null)
+                            Positioned(
+                              top: 8,
+                              child: Text(
+                                '$selectionIndex',
+                                style: GoogleFonts.hammersmithOne(
+                                  color: Colors.black,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   );
@@ -92,61 +271,260 @@ class _TripMapScreenState extends State<TripMapScreen> {
             ],
           ),
 
-          // DAY SELECTOR (Top)
+          // Tap outside dropdown to close it
+          if (_isDayDropdownOpen)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _isDayDropdownOpen = false),
+                behavior: HitTestBehavior.opaque,
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          // Trip name header at top (simple text)
           Positioned(
-            top: 50,
+            top: 15,
             left: 20,
             right: 20,
-            child: Row(
+            child: Text(
+              widget.tripName,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.hammersmithOne(
+                color: Colors.black,
+                fontSize: 22,
+                shadows: [Shadow(color: Colors.white, blurRadius: 4)],
+              ),
+            ),
+          ),
+
+          // DAY SELECTOR (Top) - Inline expandable dropdown
+          Positioned(
+            top: 70,
+            left: 20,
+            right: 20,
+            child: Column(
               children: [
-                Text(
-                  'DAY:',
-                  style: GoogleFonts.hammersmithOne(
-                    color: Colors.black,
-                    fontSize: 24,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // DAY: label
+                    Padding(
+                      padding: const EdgeInsets.only(top: 15),
+                  child: Text(
+                    'DAY:',
+                    style: GoogleFonts.hammersmithOne(
+                      color: Colors.black,
+                      fontSize: 24,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
+                // Expandable dropdown container
                 Expanded(
-                  child: Container(
-                    height: 50,
-                    decoration: BoxDecoration(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: ShapeDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: primaryBlue, width: 1),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
-                        child: DropdownButton<int>(
-                          value: _selectedDay,
-                          isExpanded: true,
-                          icon: const Icon(Icons.keyboard_arrow_down),
-                          items: List.generate(7, (index) => index + 1)
-                              .map((day) => DropdownMenuItem(
-                                    value: day,
-                                    child: Text('Day $day'),
-                                  ))
-                              .toList(),
-                          onChanged: (value) {
-                            setState(() => _selectedDay = value!);
-                          },
-                        ),
+                      shape: RoundedRectangleBorder(
+                        side: BorderSide(width: 1, color: primaryBlue),
+                        borderRadius: BorderRadius.circular(20),
                       ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Selected day header (always visible)
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isDayDropdownOpen = !_isDayDropdownOpen;
+                            });
+                          },
+                          child: Container(
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              children: [
+                                // Day number circle
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: primaryBlue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$_selectedDay',
+                                      style: GoogleFonts.hammersmithOne(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 15),
+                                // Day name and date
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        _tripDays[_selectedDay - 1]['name'],
+                                        style: GoogleFonts.hammersmithOne(
+                                          color: Colors.black,
+                                          fontSize: 24,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        '${(_tripDays[_selectedDay - 1]['date'] as DateTime).day}/${(_tripDays[_selectedDay - 1]['date'] as DateTime).month}',
+                                        style: GoogleFonts.hammersmithOne(
+                                          color: Colors.grey[600],
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Dropdown arrow
+                                Icon(
+                                  _isDayDropdownOpen 
+                                      ? Icons.keyboard_arrow_up 
+                                      : Icons.keyboard_arrow_down,
+                                  color: primaryBlue,
+                                  size: 28,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Expanded list (only visible when open)
+                        if (_isDayDropdownOpen)
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 300),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              itemCount: _tripDays.length,
+                              itemBuilder: (context, index) {
+                                final dayData = _tripDays[index];
+                                final isSelected = dayData['day'] == _selectedDay;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedDay = dayData['day'];
+                                      _selectedCategory = 0; // Reset to beaches
+                                      _isDayDropdownOpen = false;
+                                    });
+                                  },
+                                  child: Container(
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? primaryBlue.withOpacity(0.1) : Colors.transparent,
+                                      border: Border(
+                                        top: BorderSide(
+                                          width: 1,
+                                          color: primaryBlue.withOpacity(0.3),
+                                        ),
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                                    child: Row(
+                                      children: [
+                                        // Day number circle
+                                        Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            color: primaryBlue,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '${dayData['day']}',
+                                              style: GoogleFonts.hammersmithOne(
+                                                color: Colors.white,
+                                                fontSize: 24,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 15),
+                                        // Day name and date
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                dayData['name'],
+                                                style: GoogleFonts.hammersmithOne(
+                                                  color: isSelected ? primaryBlue : Colors.black,
+                                                  fontSize: 22,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              Text(
+                                                '${(dayData['date'] as DateTime).day}/${(dayData['date'] as DateTime).month}',
+                                                style: GoogleFonts.hammersmithOne(
+                                                  color: isSelected ? primaryBlue : Colors.grey[600],
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-          ),
+            // Left/Right arrows BELOW the container (when collapsed)
+            if (!_isDayDropdownOpen)
+              Padding(
+                padding: const EdgeInsets.only(left: 60, top: 4), // offset for "DAY:" label
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_left, color: _selectedDay > 1 ? primaryBlue : Colors.grey, size: 36),
+                      onPressed: _selectedDay > 1 
+                          ? () => setState(() { _selectedDay--; _selectedCategory = 0; })
+                          : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 40),
+                    IconButton(
+                      icon: Icon(Icons.arrow_right, color: _selectedDay < _tripDays.length ? primaryBlue : Colors.grey, size: 36),
+                      onPressed: _selectedDay < _tripDays.length 
+                          ? () => setState(() { _selectedDay++; _selectedCategory = 0; })
+                          : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
 
           // BOTTOM PANEL
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: Container(
-              height: MediaQuery.of(context).size.height * 0.45,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: _isPanelExpanded 
+                  ? MediaQuery.of(context).size.height * 0.45 
+                  : 70,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -154,70 +532,157 @@ class _TripMapScreenState extends State<TripMapScreen> {
               ),
               child: Column(
                 children: [
-                  // Header: Back, Title, Check
-                  Padding(
-                    padding: const EdgeInsets.all(15),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.arrow_back_ios, color: primaryBlue),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        Text(
-                          'Plan your trip',
-                          style: GoogleFonts.hammersmithOne(
-                            color: Colors.black,
-                            fontSize: 28,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            // Save and go back to calendar
-                            Navigator.popUntil(context, (route) => route.isFirst);
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: primaryBlue,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.check, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Category Icons
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildCategoryButton(0, Icons.beach_access),
-                        _buildCategoryButton(1, Icons.restaurant),
-                        _buildCategoryButton(2, Icons.account_balance),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Destinations List
-                  Expanded(
+                  // Drag handle to toggle panel
+                  GestureDetector(
+                    onTap: () => setState(() => _isPanelExpanded = !_isPanelExpanded),
                     child: Container(
-                      decoration: BoxDecoration(
-                        color: primaryBlue,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      width: double.infinity,
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      child: Center(
+                        child: Container(
+                          width: 40,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[400],
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                       ),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.only(top: 10),
-                        itemCount: _destinations.length,
-                        itemBuilder: (context, index) {
-                          return _buildDestinationCard(index + 1, _destinations[index]['name']);
-                        },
+                    ),
+                  ),
+                  // Header: Back, Title, Check
+                  if (_isPanelExpanded)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.arrow_back_ios, color: primaryBlue),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          Text(
+                            'Plan your trip',
+                            style: GoogleFonts.hammersmithOne(
+                              color: Colors.black,
+                              fontSize: 28,
+                            ),
+                          ),
+                          // Check button only on last day
+                          if (_selectedDay == _tripDays.length)
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.popUntil(context, (route) => route.isFirst);
+                              },
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: primaryBlue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.check, color: Colors.white),
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 40),
+                        ],
                       ),
+                    ),
+
+                  // Category Icons (only when expanded)
+                  if (_isPanelExpanded)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildCategoryButton(0, Icons.beach_access),
+                          _buildCategoryButton(1, Icons.restaurant),
+                          _buildCategoryButton(2, Icons.account_balance),
+                        ],
+                      ),
+                    ),
+                  if (_isPanelExpanded) const SizedBox(height: 10),
+
+                  // Destinations List (only when expanded)
+                  if (_isPanelExpanded)
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: primaryBlue,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(color: Colors.white),
+                            )
+                          : _currentDestinations.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No destinations found\nAdd some in Firebase!',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.hammersmithOne(
+                                      color: Colors.white70,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                )
+                              : Column(
+                                  children: [
+                                    // Selected spots (reorderable)
+                                    if (_selectedCount > 0)
+                                      Container(
+                                        constraints: BoxConstraints(maxHeight: _selectedCount * 80.0),
+                                        child: ReorderableListView.builder(
+                                          shrinkWrap: true,
+                                          padding: const EdgeInsets.only(top: 10),
+                                          itemCount: _selectedCount,
+                                          onReorder: _onReorder,
+                                          proxyDecorator: (child, index, animation) => Material(
+                                            color: Colors.transparent,
+                                            elevation: 6,
+                                            shadowColor: Colors.black45,
+                                            borderRadius: BorderRadius.circular(20),
+                                            child: child,
+                                          ),
+                                          itemBuilder: (context, index) {
+                                            final destId = _currentSelectedIds[index];
+                                            final destination = _currentDestinations.firstWhere(
+                                              (d) => d.id == destId,
+                                              orElse: () => _currentDestinations.first,
+                                            );
+                                            return _buildDestinationCard(
+                                              key: ValueKey(destination.id),
+                                              id: destination.id,
+                                              index: index,
+                                              number: index + 1,
+                                              name: destination.name,
+                                              isSelected: true,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    // Unselected spots
+                                    Expanded(
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.only(top: _selectedCount > 0 ? 5 : 10),
+                                        itemCount: _sortedDestinations.length - _selectedCount,
+                                        itemBuilder: (context, index) {
+                                          final destination = _sortedDestinations[_selectedCount + index];
+                                          return _buildDestinationCard(
+                                            key: ValueKey(destination.id),
+                                            id: destination.id,
+                                            index: null,
+                                            number: null,
+                                            name: destination.name,
+                                            isSelected: false,
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
                     ),
                   ),
                 ],
@@ -250,47 +715,66 @@ class _TripMapScreenState extends State<TripMapScreen> {
     );
   }
 
-  Widget _buildDestinationCard(int number, String name) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryBlue, width: 1),
-      ),
-      child: Row(
-        children: [
-          // Number circle
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: primaryBlue,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '$number',
-                style: GoogleFonts.hammersmithOne(
-                  color: Colors.white,
-                  fontSize: 20,
+  Widget _buildDestinationCard({
+    required Key key,
+    required String id,
+    required int? index,
+    required int? number,
+    required String name,
+    required bool isSelected,
+  }) {
+    final isHighlighted = _highlightedDestinationId == id;
+    
+    return GestureDetector(
+      key: key,
+      onTap: () => _toggleSelection(id),
+      onLongPress: () {
+        setState(() => _highlightedDestinationId = id);
+      },
+      onLongPressEnd: (_) {
+        setState(() => _highlightedDestinationId = null);
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? primaryBlue 
+              : isHighlighted 
+                  ? Colors.green.shade100 
+                  : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isHighlighted ? Colors.green : primaryBlue, 
+            width: isHighlighted ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            if (isSelected && number != null)
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: Center(
+                  child: Text('$number', style: GoogleFonts.hammersmithOne(color: primaryBlue, fontSize: 20)),
                 ),
+              )
+            else
+              const SizedBox(width: 50, height: 50),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Text(
+                name,
+                style: GoogleFonts.hammersmithOne(color: isSelected ? Colors.white : primaryBlue, fontSize: 20),
               ),
             ),
-          ),
-          const SizedBox(width: 15),
-          // Destination name
-          Expanded(
-            child: Text(
-              name,
-              style: GoogleFonts.hammersmithOne(
-                color: primaryBlue,
-                fontSize: 20,
-              ),
-            ),
-          ),
-        ],
+            if (isSelected && index != null)
+              ReorderableDragStartListener(index: index, child: Icon(Icons.drag_handle, color: Colors.white, size: 28))
+            else
+              Icon(Icons.add_circle_outline, color: primaryBlue, size: 28),
+          ],
+        ),
       ),
     );
   }
