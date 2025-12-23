@@ -74,11 +74,15 @@ class _TripMapScreenState extends State<TripMapScreen> {
   List<Destination> _restaurants = [];
   List<Destination> _landmarks = [];
   
-  // Selected destinations per day per category
+  // Selected destinations per day (unified list, not separated by category)
   final Map<String, List<String>> _selectedSpots = {};
   
-  String get _selectionKey => '${_selectedDay}_$_selectedCategory';
+  // Key is just day number (unified across all categories)
+  String get _selectionKey => '$_selectedDay';
   List<String> get _currentSelectedIds => _selectedSpots[_selectionKey] ?? [];
+  
+  // Get all destinations across all categories for lookup
+  List<Destination> get _allDestinations => [..._beaches, ..._restaurants, ..._landmarks];
   
   List<Destination> get _currentDestinations {
     switch (_selectedCategory) {
@@ -89,22 +93,46 @@ class _TripMapScreenState extends State<TripMapScreen> {
     }
   }
   
+  // Returns: [all selected spots in order] + [unselected spots from current category]
   List<Destination> get _sortedDestinations {
-    final destinations = _currentDestinations;
-    if (destinations.isEmpty) return [];
-    
     final selectedIds = _currentSelectedIds;
-    final selected = <Destination>[];
-    final unselected = <Destination>[];
+    final allDest = _allDestinations;
+    final categoryDest = _currentDestinations;
     
+    // Get all selected destinations in order
+    final selected = <Destination>[];
     for (final id in selectedIds) {
-      final dest = destinations.where((d) => d.id == id);
+      final dest = allDest.where((d) => d.id == id);
       if (dest.isNotEmpty) selected.add(dest.first);
     }
-    for (final dest in destinations) {
+    
+    // Get unselected destinations from current category only
+    final unselected = <Destination>[];
+    for (final dest in categoryDest) {
       if (!selectedIds.contains(dest.id)) unselected.add(dest);
     }
+    
     return [...selected, ...unselected];
+  }
+  
+  // Destinations to show on map: current category + selected from other categories
+  List<Destination> get _mapDestinations {
+    final selectedIds = _currentSelectedIds;
+    final allDest = _allDestinations;
+    final categoryDest = _currentDestinations;
+    
+    // Start with all from current category
+    final result = <Destination>[...categoryDest];
+    
+    // Add selected spots from OTHER categories (not current)
+    for (final id in selectedIds) {
+      final dest = allDest.where((d) => d.id == id);
+      if (dest.isNotEmpty && !categoryDest.any((d) => d.id == id)) {
+        result.add(dest.first);
+      }
+    }
+    
+    return result;
   }
   
   int get _selectedCount => _currentSelectedIds.length;
@@ -116,6 +144,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
       if (_selectedSpots[key]!.contains(id)) {
         _selectedSpots[key]!.remove(id);
       } else {
+        // Add at the BOTTOM of the list (newest last)
         _selectedSpots[key]!.add(id);
       }
     });
@@ -213,7 +242,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 userAgentPackageName: 'com.cyclago.app',
               ),
               MarkerLayer(
-                markers: _currentDestinations.map((dest) {
+                markers: _mapDestinations.map((dest) {
                   final isSelected = _currentSelectedIds.contains(dest.id);
                   final isHighlighted = _highlightedDestinationId == dest.id;
                   final selectionIndex = isSelected 
@@ -646,16 +675,19 @@ class _TripMapScreenState extends State<TripMapScreen> {
                                           ),
                                           itemBuilder: (context, index) {
                                             final destId = _currentSelectedIds[index];
-                                            final destination = _currentDestinations.firstWhere(
-                                              (d) => d.id == destId,
-                                              orElse: () => _currentDestinations.first,
-                                            );
+                                            // Use _allDestinations to find ANY selected item (not just current category)
+                                            final destSearch = _allDestinations.where((d) => d.id == destId);
+                                            if (destSearch.isEmpty) {
+                                              return const SizedBox.shrink(); // Skip if not found
+                                            }
+                                            final destination = destSearch.first;
                                             return _buildDestinationCard(
                                               key: ValueKey(destination.id),
                                               id: destination.id,
                                               index: index,
                                               number: index + 1,
                                               name: destination.name,
+                                              category: destination.category,
                                               isSelected: true,
                                             );
                                           },
@@ -674,6 +706,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
                                               index: null,
                                               number: null,
                                               name: destination.name,
+                                              category: destination.category,
                                               isSelected: false,
                                             );
                                           },
@@ -721,17 +754,35 @@ class _TripMapScreenState extends State<TripMapScreen> {
     required int? index,
     required int? number,
     required String name,
+    required String category,
     required bool isSelected,
   }) {
     final isHighlighted = _highlightedDestinationId == id;
     
-    return GestureDetector(
+    // Get category icon
+    IconData categoryIcon;
+    switch (category) {
+      case 'beaches':
+        categoryIcon = Icons.beach_access;
+        break;
+      case 'restaurants':
+        categoryIcon = Icons.restaurant;
+        break;
+      case 'landmarks':
+        categoryIcon = Icons.account_balance;
+        break;
+      default:
+        categoryIcon = Icons.place;
+    }
+    
+    Widget card = GestureDetector(
       key: key,
       onTap: () => _toggleSelection(id),
-      onLongPress: () {
+      // Only add long press handlers for unselected items (selected uses reorderable)
+      onLongPress: isSelected ? null : () {
         setState(() => _highlightedDestinationId = id);
       },
-      onLongPressEnd: (_) {
+      onLongPressEnd: isSelected ? null : (_) {
         setState(() => _highlightedDestinationId = null);
       },
       child: Container(
@@ -769,13 +820,22 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 style: GoogleFonts.hammersmithOne(color: isSelected ? Colors.white : primaryBlue, fontSize: 20),
               ),
             ),
-            if (isSelected && index != null)
-              ReorderableDragStartListener(index: index, child: Icon(Icons.drag_handle, color: Colors.white, size: 28))
-            else
-              Icon(Icons.add_circle_outline, color: primaryBlue, size: 28),
+            // Category icon on the right
+            Icon(categoryIcon, color: isSelected ? Colors.white : primaryBlue, size: 28),
           ],
         ),
       ),
     );
+    
+    // Wrap selected items in ReorderableDelayedDragStartListener for long-press drag
+    if (isSelected && index != null) {
+      return ReorderableDelayedDragStartListener(
+        key: key,
+        index: index,
+        child: card,
+      );
+    }
+    
+    return card;
   }
 }

@@ -63,7 +63,6 @@ class _TripViewScreenState extends State<TripViewScreen> {
     return _islandCenters[key] ?? const LatLng(37.05, 25.45);
   }
   
-  int _selectedCategory = 0;
   int _selectedDay = 1;
   bool _isDayDropdownOpen = false;
   bool _isLoading = true;
@@ -82,28 +81,23 @@ class _TripViewScreenState extends State<TripViewScreen> {
   
   final Map<String, List<String>> _selectedSpots = {};
   
-  String get _selectionKey => '${_selectedDay}_$_selectedCategory';
+  // Key is just day number (unified across all categories - matching trip_map_screen)
+  String get _selectionKey => '$_selectedDay';
   List<String> get _currentSelectedIds => _selectedSpots[_selectionKey] ?? [];
   
-  List<Destination> get _currentDestinations {
-    switch (_selectedCategory) {
-      case 0: return _beaches;
-      case 1: return _restaurants;
-      case 2: return _landmarks;
-      default: return _beaches;
-    }
-  }
+  // Get all destinations across all categories
+  List<Destination> get _allDestinations => [..._beaches, ..._restaurants, ..._landmarks];
   
-  // Only selected destinations
+  // All selected destinations (unified list)
   List<Destination> get _selectedDestinations {
-    final destinations = _currentDestinations;
-    if (destinations.isEmpty) return [];
+    final allDest = _allDestinations;
+    if (allDest.isEmpty) return [];
     
     final selectedIds = _currentSelectedIds;
     final selected = <Destination>[];
     
     for (final id in selectedIds) {
-      final dest = destinations.where((d) => d.id == id);
+      final dest = allDest.where((d) => d.id == id);
       if (dest.isNotEmpty) selected.add(dest.first);
     }
     return selected;
@@ -344,7 +338,6 @@ class _TripViewScreenState extends State<TripViewScreen> {
                                       onTap: () {
                                         setState(() {
                                           _selectedDay = dayData['day'];
-                                          _selectedCategory = 0;
                                           _isDayDropdownOpen = false;
                                         });
                                       },
@@ -395,14 +388,14 @@ class _TripViewScreenState extends State<TripViewScreen> {
                       children: [
                         IconButton(
                           icon: Icon(Icons.arrow_left, color: _selectedDay > 1 ? primaryBlue : Colors.grey, size: 36),
-                          onPressed: _selectedDay > 1 ? () => setState(() { _selectedDay--; _selectedCategory = 0; }) : null,
+                          onPressed: _selectedDay > 1 ? () => setState(() { _selectedDay--; }) : null,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
                         const SizedBox(width: 40),
                         IconButton(
                           icon: Icon(Icons.arrow_right, color: _selectedDay < _tripDays.length ? primaryBlue : Colors.grey, size: 36),
-                          onPressed: _selectedDay < _tripDays.length ? () => setState(() { _selectedDay++; _selectedCategory = 0; }) : null,
+                          onPressed: _selectedDay < _tripDays.length ? () => setState(() { _selectedDay++; }) : null,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -483,19 +476,7 @@ class _TripViewScreenState extends State<TripViewScreen> {
                         ],
                       ),
                     ),
-                  // Category buttons
-                  if (_isPanelExpanded)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 40),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildCategoryButton(0, Icons.beach_access),
-                          _buildCategoryButton(1, Icons.restaurant),
-                          _buildCategoryButton(2, Icons.account_balance),
-                        ],
-                      ),
-                    ),
+                  // Unified list - no category buttons needed
                   if (_isPanelExpanded) const SizedBox(height: 10),
                   // Selected spots list
                   if (_isPanelExpanded)
@@ -534,6 +515,7 @@ class _TripViewScreenState extends State<TripViewScreen> {
                                         index: index,
                                         number: index + 1,
                                         name: dest.name,
+                                        category: dest.category,
                                       );
                                     },
                                   ),
@@ -548,61 +530,63 @@ class _TripViewScreenState extends State<TripViewScreen> {
     );
   }
 
-  Widget _buildCategoryButton(int index, IconData icon) {
-    final isSelected = _selectedCategory == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = index),
-      child: Container(
-        width: 55,
-        height: 55,
-        decoration: BoxDecoration(
-          color: isSelected ? primaryBlue : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: primaryBlue, width: 1),
-        ),
-        child: Icon(icon, color: isSelected ? Colors.white : primaryBlue, size: 30),
-      ),
-    );
-  }
-
   Widget _buildSpotCard({
     required Key key,
     required String id,
     required int index,
     required int number,
     required String name,
+    required String category,
   }) {
     final isHighlighted = _highlightedDestinationId == id;
-    return GestureDetector(
+    
+    // Get category icon
+    IconData categoryIcon;
+    switch (category) {
+      case 'beaches':
+        categoryIcon = Icons.beach_access;
+        break;
+      case 'restaurants':
+        categoryIcon = Icons.restaurant;
+        break;
+      case 'landmarks':
+        categoryIcon = Icons.account_balance;
+        break;
+      default:
+        categoryIcon = Icons.place;
+    }
+    
+    return ReorderableDelayedDragStartListener(
       key: key,
-      onTap: () {
-        setState(() {
-          _highlightedDestinationId = _highlightedDestinationId == id ? null : id;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-        decoration: BoxDecoration(
-          color: isHighlighted ? Colors.green.shade100 : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isHighlighted ? Colors.green : primaryBlue, width: isHighlighted ? 2 : 1),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(color: isHighlighted ? Colors.green : primaryBlue, shape: BoxShape.circle),
-              child: Center(child: Text('$number', style: GoogleFonts.hammersmithOne(color: Colors.white, fontSize: 20))),
-            ),
-            const SizedBox(width: 15),
-            Expanded(child: Text(name, style: GoogleFonts.hammersmithOne(color: isHighlighted ? Colors.green : primaryBlue, fontSize: 20))),
-            ReorderableDragStartListener(
-              index: index,
-              child: Icon(Icons.drag_handle, color: isHighlighted ? Colors.green : primaryBlue, size: 28),
-            ),
-          ],
+      index: index,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _highlightedDestinationId = _highlightedDestinationId == id ? null : id;
+          });
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          decoration: BoxDecoration(
+            color: isHighlighted ? Colors.green.shade100 : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: isHighlighted ? Colors.green : primaryBlue, width: isHighlighted ? 2 : 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(color: isHighlighted ? Colors.green : primaryBlue, shape: BoxShape.circle),
+                child: Center(child: Text('$number', style: GoogleFonts.hammersmithOne(color: Colors.white, fontSize: 20))),
+              ),
+              const SizedBox(width: 15),
+              Expanded(child: Text(name, style: GoogleFonts.hammersmithOne(color: isHighlighted ? Colors.green : primaryBlue, fontSize: 20))),
+              // Category icon on the right
+              Icon(categoryIcon, color: isHighlighted ? Colors.green : primaryBlue, size: 28),
+            ],
+          ),
         ),
       ),
     );
