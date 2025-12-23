@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:geolocator/geolocator.dart'; // <--- Import Geolocator
+import 'package:geolocator/geolocator.dart';
+import 'package:cyclago/core/global_data.dart';
 import 'features/home/home_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/camera/island_pass_screen.dart';
@@ -55,8 +56,10 @@ class _MainScaffoldState extends State<MainScaffold> {
   // --- LOCATION STATE ---
   bool _isLocationValid = false; 
   bool _isLoadingLocation = true;
+  double? _userLat;
+  double? _userLng;
 
-  // Naxos Coordinates
+  // Naxos Coordinates (for island pass validation)
   final double naxosLat = 37.1032;
   final double naxosLng = 25.3764;
   final double allowedRadiusInMeters = 50000; // 50km
@@ -97,6 +100,8 @@ class _MainScaffoldState extends State<MainScaffold> {
 
       if (mounted) {
         setState(() {
+          _userLat = position.latitude;
+          _userLng = position.longitude;
           _isLocationValid = distanceInMeters <= allowedRadiusInMeters;
           _isLoadingLocation = false;
         });
@@ -119,11 +124,20 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if user has posted (unlocked Island Pass)
+    final bool hasPosted = GlobalFeedData.posts.isNotEmpty;
+    
     final List<Widget> screens = [
       const HomeScreen(),
       // PASS THE LOCATION STATUS HERE
       IslandPassScreen(isLocationValid: _isLocationValid), 
-      MapScreen(onToggleNavBar: _toggleNavBar),
+      MapScreen(
+        onToggleNavBar: _toggleNavBar, 
+        userLat: _userLat, 
+        userLng: _userLng,
+        hasPosted: hasPosted,
+        onSwitchTab: _onItemTapped,
+      ),
       const CalendarScreen(),
       const ProfileScreen(),
     ];
