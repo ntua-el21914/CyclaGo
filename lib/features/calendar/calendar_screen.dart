@@ -19,28 +19,31 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9FC),
-      appBar: AppBar(
-        title: Text(
-          'My Trips',
-          style: GoogleFonts.hammersmithOne(
-            color: Colors.black,
-            fontSize: 32,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(2),
-          child: Container(
-            color: primaryBlue,
-            height: 2,
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header matching Island Pass style
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(width: 1, color: primaryBlue)),
+              ),
+              child: Center(
+                child: Text(
+                  'My Trips',
+                  style: GoogleFonts.hammersmithOne(
+                    color: Colors.black,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            // Body content
+            Expanded(
+              child: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
@@ -318,6 +321,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   }).toList(),
                 );
               },
+            ),
+          ],
+        ),
+              ),
             ),
           ],
         ),

@@ -499,32 +499,43 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9FC),
-      // Header bar - matching calendar screen style
-      appBar: AppBar(
-        title: Text(
-          'Trip Planner',
-          style: GoogleFonts.hammersmithOne(
-            color: Colors.black,
-            fontSize: 32,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: primaryBlue),
-          onPressed: () => Navigator.pop(context),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(2),
-          child: Container(
-            color: primaryBlue,
-            height: 2,
-          ),
-        ),
-      ),
-      body: GestureDetector(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header matching Island Pass style
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(width: 1, color: primaryBlue)),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Back button on left
+                  Positioned(
+                    left: 8,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios, color: primaryBlue),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  // Centered title
+                  Text(
+                    'Trip Planner',
+                    style: GoogleFonts.hammersmithOne(
+                      color: Colors.black,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Body content
+            Expanded(
+              child: GestureDetector(
         onHorizontalDragEnd: (details) {
           // Swipe right to go back (positive velocity)
           if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
@@ -863,10 +874,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                   }
 
                   try {
-                    String tripId;
+                    String? tripId;
                     
                     if (widget.isEditMode) {
-                      // Update existing trip
+                      // Update existing trip (editing an existing trip)
                       await TripService.updateTrip(
                         tripId: widget.tripId!,
                         tripName: _tripNameController.text,
@@ -875,15 +886,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                         endDate: _endDate!,
                       );
                       tripId = widget.tripId!;
-                    } else {
-                      // Create new trip
-                      tripId = await TripService.saveTrip(
-                        tripName: _tripNameController.text,
-                        island: _selectedIsland!,
-                        startDate: _startDate!,
-                        endDate: _endDate!,
-                      );
                     }
+                    // For new trips, don't save yet - will save on last day confirmation
 
                     // Navigate to trip map screen
                     if (context.mounted) {
@@ -891,7 +895,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => TripMapScreen(
-                            tripId: tripId,
+                            tripId: tripId, // null for new trips, existing ID for edits
                             tripName: _tripNameController.text,
                             islandName: _selectedIsland!,
                             startDate: _startDate!,
@@ -924,11 +928,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-        ),
-      ),
-    );
+            ],  // closes inner Column's children
+          ),  // closes inner Column
+          ),  // closes AnimatedContainer
+          ),  // closes Center
+            ),  // closes GestureDetector child
+          ),  // closes Expanded
+          ],  // closes outer Column's children
+        ),  // closes outer Column
+      ),  // closes SafeArea
+    );  // closes Scaffold
   }
 }

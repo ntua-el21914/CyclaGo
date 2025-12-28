@@ -563,14 +563,27 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 children: [
                   // Drag handle to toggle panel
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => setState(() => _isPanelExpanded = !_isPanelExpanded),
+                    onVerticalDragEnd: (details) {
+                      // Drag down = collapse, drag up = expand
+                      if (details.primaryVelocity != null) {
+                        if (details.primaryVelocity! > 100) {
+                          // Dragging down - collapse
+                          setState(() => _isPanelExpanded = false);
+                        } else if (details.primaryVelocity! < -100) {
+                          // Dragging up - expand
+                          setState(() => _isPanelExpanded = true);
+                        }
+                      }
+                    },
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Center(
                         child: Container(
-                          width: 40,
-                          height: 5,
+                          width: 50,
+                          height: 6,
                           decoration: BoxDecoration(
                             color: Colors.grey[400],
                             borderRadius: BorderRadius.circular(10),
@@ -600,8 +613,35 @@ class _TripMapScreenState extends State<TripMapScreen> {
                           // Check button only on last day
                           if (_selectedDay == _tripDays.length)
                             GestureDetector(
-                              onTap: () {
-                                Navigator.popUntil(context, (route) => route.isFirst);
+                              onTap: () async {
+                                // Save trip if it's a new trip (tripId is null)
+                                if (widget.tripId == null) {
+                                  try {
+                                    final newTripId = await TripService.saveTrip(
+                                      tripName: widget.tripName,
+                                      island: widget.islandName,
+                                      startDate: widget.startDate,
+                                      endDate: widget.endDate,
+                                    );
+                                    // Save spot selections for the new trip
+                                    if (_selectedSpots.isNotEmpty) {
+                                      await TripService.saveSpotSelections(
+                                        tripId: newTripId,
+                                        selections: _selectedSpots,
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error saving trip: $e')),
+                                      );
+                                      return;
+                                    }
+                                  }
+                                }
+                                if (context.mounted) {
+                                  Navigator.popUntil(context, (route) => route.isFirst);
+                                }
                               },
                               child: Container(
                                 width: 40,
@@ -796,8 +836,12 @@ class _TripMapScreenState extends State<TripMapScreen> {
                   : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isHighlighted ? Colors.green : primaryBlue, 
-            width: isHighlighted ? 2 : 1,
+            color: isSelected 
+                ? Colors.white 
+                : isHighlighted 
+                    ? Colors.green 
+                    : primaryBlue, 
+            width: isSelected ? 3 : isHighlighted ? 2 : 1,
           ),
         ),
         child: Row(

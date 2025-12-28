@@ -423,14 +423,27 @@ class _TripViewScreenState extends State<TripViewScreen> {
                 children: [
                   // Drag handle
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => setState(() => _isPanelExpanded = !_isPanelExpanded),
+                    onVerticalDragEnd: (details) {
+                      // Drag down = collapse, drag up = expand
+                      if (details.primaryVelocity != null) {
+                        if (details.primaryVelocity! > 100) {
+                          // Dragging down - collapse
+                          setState(() => _isPanelExpanded = false);
+                        } else if (details.primaryVelocity! < -100) {
+                          // Dragging up - expand
+                          setState(() => _isPanelExpanded = true);
+                        }
+                      }
+                    },
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.only(top: 8, bottom: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Center(
                         child: Container(
-                          width: 40,
-                          height: 5,
+                          width: 50,
+                          height: 6,
                           decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
