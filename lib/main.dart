@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cyclago/core/global_data.dart';
+import 'package:cyclago/core/destination_service.dart';
 import 'features/home/home_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/camera/island_pass_screen.dart';
@@ -36,7 +38,35 @@ class CyclaGoApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const LoginScreen(), 
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasData && snapshot.data != null) {
+          // User is signed in, go to main app
+          return const MainScaffold();
+        } else {
+          // User is not signed in, show login
+          return const LoginScreen();
+        }
+      },
     );
   }
 }
@@ -58,11 +88,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   bool _isLoadingLocation = true;
   double? _userLat;
   double? _userLng;
-
-  // Naxos Coordinates (for island pass validation)
-  final double naxosLat = 37.1032;
-  final double naxosLng = 25.3764;
-  final double allowedRadiusInMeters = 50000; // 50km
+  String? _currentIsland;
 
   @override
   void initState() {
@@ -91,18 +117,18 @@ class _MainScaffoldState extends State<MainScaffold> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      double distanceInMeters = Geolocator.distanceBetween(
+      // Check if user is on any supported island
+      final nearestIsland = DestinationService.findNearestIsland(
         position.latitude,
         position.longitude,
-        naxosLat,
-        naxosLng,
       );
 
       if (mounted) {
         setState(() {
           _userLat = position.latitude;
           _userLng = position.longitude;
-          _isLocationValid = distanceInMeters <= allowedRadiusInMeters;
+          _currentIsland = nearestIsland;
+          _isLocationValid = nearestIsland != null;
           _isLoadingLocation = false;
         });
       }
@@ -130,13 +156,14 @@ class _MainScaffoldState extends State<MainScaffold> {
     final List<Widget> screens = [
       const HomeScreen(),
       // PASS THE LOCATION STATUS HERE
-      IslandPassScreen(isLocationValid: _isLocationValid), 
+      IslandPassScreen(isLocationValid: _isLocationValid, onRetry: _checkLocationOnLogin, currentIsland: _currentIsland), 
       MapScreen(
         onToggleNavBar: _toggleNavBar, 
         userLat: _userLat, 
         userLng: _userLng,
         hasPosted: hasPosted,
         onSwitchTab: _onItemTapped,
+        currentIsland: _currentIsland,
       ),
       const CalendarScreen(),
       const ProfileScreen(),

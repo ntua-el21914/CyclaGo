@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 // import 'package:http/http.dart' as http; // Δεν χρειάζεται εδώ πια το upload
@@ -8,7 +7,9 @@ import 'package:camera/camera.dart';
 import 'photo_posting_screen.dart';
 
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  final String? currentIsland;
+  
+  const CameraScreen({super.key, this.currentIsland});
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -61,7 +62,7 @@ class _CameraScreenState extends State<CameraScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => VerificationScreen(imagePath: photo.path),
+          builder: (context) => VerificationScreen(imagePath: photo.path, currentIsland: widget.currentIsland),
         ),
       );
 

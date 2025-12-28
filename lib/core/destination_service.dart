@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Model class for a destination (beach, restaurant, landmark)
 class Destination {
@@ -39,6 +40,93 @@ class Destination {
 
 class DestinationService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // All 23 Cyclades islands
+  static const List<String> _islands = [
+    'Naxos',
+    'Paros',
+    'Mykonos',
+    'Santorini',
+    'Ios',
+    'Syros',
+    'Tinos',
+    'Andros',
+    'Kea',
+    'Kythnos',
+    'Serifos',
+    'Sifnos',
+    'Folégandros',
+    'Sikinos',
+    'Amorgos',
+    'Anafi',
+    'Schinoussa',
+    'Donoussa',
+    'Kounoupas',
+    'Heraklia',
+    'K Koufonissi',
+    'P Koufonissi',
+    'Antiparos',
+    'Delos',
+    'Rhenia',
+  ];
+
+  // Island images for dynamic display
+  static const Map<String, String> _islandImages = {
+    'naxos': 'https://www.greeka.com/photos/cyclades/naxos/greeka_galleries/37-1024.jpg',
+    'paros': 'https://www.greeka.com/photos/cyclades/paros/greeka_galleries/01-1024.jpg',
+    'mykonos': 'https://www.greeka.com/photos/cyclades/mykonos/greeka_galleries/01-1024.jpg',
+    'santorini': 'https://www.greeka.com/photos/cyclades/santorini/greeka_galleries/01-1024.jpg',
+    'ios': 'https://www.greeka.com/photos/cyclades/ios/greeka_galleries/01-1024.jpg',
+    'syros': 'https://www.greeka.com/photos/cyclades/syros/greeka_galleries/01-1024.jpg',
+    'tinos': 'https://www.greeka.com/photos/cyclades/tinos/greeka_galleries/01-1024.jpg',
+    'andros': 'https://www.greeka.com/photos/cyclades/andros/greeka_galleries/01-1024.jpg',
+    'kea': 'https://www.greeka.com/photos/cyclades/kea/greeka_galleries/01-1024.jpg',
+    'kythnos': 'https://www.greeka.com/photos/cyclades/kythnos/greeka_galleries/01-1024.jpg',
+    'serifos': 'https://www.greeka.com/photos/cyclades/serifos/greeka_galleries/01-1024.jpg',
+    'sifnos': 'https://www.greeka.com/photos/cyclades/sifnos/greeka_galleries/01-1024.jpg',
+    'folégandros': 'https://www.greeka.com/photos/cyclades/folegandros/greeka_galleries/01-1024.jpg',
+    'sikinos': 'https://www.greeka.com/photos/cyclades/sikinos/greeka_galleries/01-1024.jpg',
+    'amorgos': 'https://www.greeka.com/photos/cyclades/amorgos/greeka_galleries/01-1024.jpg',
+    'anafi': 'https://www.greeka.com/photos/cyclades/anafi/greeka_galleries/01-1024.jpg',
+    'schinoussa': 'https://www.greeka.com/photos/cyclades/schinoussa/greeka_galleries/01-1024.jpg',
+    'donoussa': 'https://www.greeka.com/photos/cyclades/donoussa/greeka_galleries/01-1024.jpg',
+    'kounoupas': 'https://www.greeka.com/photos/cyclades/koufonissi/greeka_galleries/01-1024.jpg',
+    'heraklia': 'https://www.greeka.com/photos/cyclades/heraklia/greeka_galleries/01-1024.jpg',
+    'k Koufonissi': 'https://www.greeka.com/photos/cyclades/koufonissi/greeka_galleries/01-1024.jpg',
+    'p Koufonissi': 'https://www.greeka.com/photos/cyclades/koufonissi/greeka_galleries/01-1024.jpg',
+    'antiparos': 'https://www.greeka.com/photos/cyclades/antiparos/greeka_galleries/01-1024.jpg',
+    'delos': 'https://www.greeka.com/photos/cyclades/delos/greeka_galleries/01-1024.jpg',
+    'rhenia': 'https://www.greeka.com/photos/cyclades/rhenia/greeka_galleries/01-1024.jpg',
+  };
+
+  // Island centers for location validation
+  static const Map<String, LatLng> _islandCenters = {
+    'naxos': LatLng(37.1032, 25.3764),
+    'paros': LatLng(37.0857, 25.1489),
+    'mykonos': LatLng(37.4467, 25.3289),
+    'santorini': LatLng(36.3932, 25.4615),
+    'ios': LatLng(36.7236, 25.2822),
+    'syros': LatLng(37.4433, 24.9394),
+    'tinos': LatLng(37.5375, 25.1634),
+    'andros': LatLng(37.8333, 24.9333),
+    'kea': LatLng(37.6167, 24.3333),
+    'kythnos': LatLng(37.3833, 24.4167),
+    'serifos': LatLng(37.15, 24.5),
+    'sifnos': LatLng(36.9667, 24.7),
+    'folégandros': LatLng(36.6167, 24.9167),
+    'sikinos': LatLng(36.6833, 25.1167),
+    'amorgos': LatLng(36.8333, 25.9),
+    'anafi': LatLng(36.35, 25.7833),
+    'schinoussa': LatLng(36.8734, 25.5089),
+    'donoussa': LatLng(37.1, 25.8167),
+    'kounoupas': LatLng(36.8833, 25.5167),
+    'heraklia': LatLng(36.8167, 25.45),
+    'k Koufonissi': LatLng(36.9333, 25.6),
+    'p Koufonissi': LatLng(36.9333, 25.6167),
+    'antiparos': LatLng(37.0394, 25.0828),
+    'delos': LatLng(37.3967, 25.2689),
+    'rhenia': LatLng(37.45, 25.3167),
+  };
 
   /// Get the document reference for an island
   static DocumentReference<Map<String, dynamic>> _getIslandDoc(String islandName) {
@@ -113,5 +201,79 @@ class DestinationService {
         .map((snapshot) => snapshot.docs
             .map((doc) => Destination.fromFirestore(doc, category))
             .toList());
+  }
+
+  /// Get the allowed radius in meters for location validation on an island
+  static double getIslandRadius(String islandName) {
+    // Define radii per island (in meters)
+    const Map<String, double> _islandRadii = {
+      'naxos': 50000, // 50km
+      'paros': 40000, // 40km
+      'mykonos': 30000, // 30km
+      'santorini': 35000, // 35km
+      'ios': 25000, // 25km
+      'syros': 30000, // 30km
+      'tinos': 35000, // 35km
+      'andros': 40000, // 40km
+      'kea': 20000, // 20km
+      'kythnos': 25000, // 25km
+      'serifos': 25000, // 25km
+      'sifnos': 30000, // 30km
+      'folégandros': 20000, // 20km
+      'sikinos': 15000, // 15km
+      'amorgos': 35000, // 35km
+      'anafi': 30000, // 30km
+      'schinoussa': 10000, // 10km
+      'donoussa': 10000, // 10km
+      'kounoupas': 5000, // 5km
+      'heraklia': 15000, // 15km
+      'k Koufonissi': 15000, // 15km
+      'p Koufonissi': 10000, // 10km
+      'antiparos': 20000, // 20km
+      'delos': 5000, // 5km
+      'rhenia': 10000, // 10km
+    };
+    return _islandRadii[islandName.toLowerCase()] ?? 50000; // Default 50km
+  }
+
+  /// Get the island centers map
+  static Map<String, LatLng> get islandCenters => _islandCenters;
+
+  /// Get the island images map
+  static Map<String, String> get islandImages => _islandImages;
+
+  /// Get the image URL for a specific island
+  static String getIslandImage(String islandName) {
+    return _islandImages[islandName.toLowerCase()] ?? 'https://www.greeka.com/photos/cyclades/naxos/greeka_galleries/37-1024.jpg';
+  }
+
+  /// Get the list of islands
+  static List<String> get islands => _islands;
+  static String? findNearestIsland(double userLat, double userLng) {
+    String? nearestIsland;
+    double minDistance = double.infinity;
+    const Distance distance = Distance();
+
+    for (var entry in _islandCenters.entries) {
+      final d = distance.as(
+        LengthUnit.Kilometer,
+        LatLng(userLat, userLng),
+        entry.value,
+      );
+      if (d < minDistance) {
+        minDistance = d;
+        nearestIsland = entry.key;
+      }
+    }
+
+    // Only return if within the island's radius
+    if (nearestIsland != null && minDistance * 1000 <= getIslandRadius(nearestIsland)) {
+      // Convert to proper case (e.g., 'naxos' -> 'Naxos')
+      return _islands.firstWhere(
+        (island) => island.toLowerCase() == nearestIsland,
+        orElse: () => nearestIsland!,
+      );
+    }
+    return null;
   }
 }

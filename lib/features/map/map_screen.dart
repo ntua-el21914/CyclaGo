@@ -13,6 +13,7 @@ class MapScreen extends StatefulWidget {
   final double? userLng;
   final bool hasPosted;
   final Function(int)? onSwitchTab;
+  final String? currentIsland;
 
   const MapScreen({
     super.key, 
@@ -21,6 +22,7 @@ class MapScreen extends StatefulWidget {
     this.userLng,
     this.hasPosted = false,
     this.onSwitchTab,
+    this.currentIsland,
   });
 
   @override
@@ -43,6 +45,7 @@ class _MapScreenState extends State<MapScreen> {
   int _selectedCategory = 0; // 0=beaches, 1=restaurants, 2=landmarks
   bool _isLoading = false;
   bool _hasInitializedFromLocation = false;
+  bool _hasPostedRecently = false;
   bool _showingSpotsList = false; // false = default (camera/chat), true = spots list
   
   // Check if user is on the selected island
@@ -60,40 +63,10 @@ class _MapScreenState extends State<MapScreen> {
   final TextEditingController _chatController = TextEditingController();
   
   // All 23 Cyclades islands
-  static const List<String> _islands = [
-    'Amorgos', 'Anafi', 'Antiparos', 'Delos', 'Donoussa',
-    'Folegandros', 'Ios', 'Iraklia', 'Kea', 'Kimolos',
-    'Koufonisia', 'Kythnos', 'Milos', 'Mykonos', 'Naxos',
-    'Paros', 'Santorini', 'Schinoussa', 'Serifos', 'Sifnos',
-    'Sikinos', 'Syros', 'Tinos',
-  ];
+  static List<String> get _islands => DestinationService.islands;
   
   // Island centers for map positioning
-  static const Map<String, LatLng> _islandCenters = {
-    'amorgos': LatLng(36.8333, 25.8833),
-    'anafi': LatLng(36.3567, 25.7823),
-    'antiparos': LatLng(37.0378, 25.0789),
-    'delos': LatLng(37.3956, 25.2667),
-    'donoussa': LatLng(36.9289, 25.8089),
-    'folegandros': LatLng(36.6214, 24.9206),
-    'ios': LatLng(36.7235, 25.2829),
-    'iraklia': LatLng(36.8456, 25.4523),
-    'kea': LatLng(37.6289, 24.3289),
-    'kimolos': LatLng(36.7945, 24.5712),
-    'koufonisia': LatLng(36.9356, 25.5923),
-    'kythnos': LatLng(37.3978, 24.4301),
-    'milos': LatLng(36.7452, 24.4275),
-    'mykonos': LatLng(37.4467, 25.3289),
-    'naxos': LatLng(37.05, 25.45),
-    'paros': LatLng(37.0853, 25.1522),
-    'santorini': LatLng(36.3932, 25.4615),
-    'schinoussa': LatLng(36.8734, 25.5089),
-    'serifos': LatLng(37.1478, 24.4823),
-    'sifnos': LatLng(36.9678, 24.6923),
-    'sikinos': LatLng(36.6878, 25.1089),
-    'syros': LatLng(37.4415, 24.9411),
-    'tinos': LatLng(37.5404, 25.1630),
-  };
+  static Map<String, LatLng> get _islandCenters => DestinationService.islandCenters;
   
   LatLng get _currentCenter {
     if (_selectedIsland == null) return const LatLng(37.05, 25.45); // Default Naxos
@@ -121,10 +94,64 @@ class _MapScreenState extends State<MapScreen> {
     // Try to detect island from user's location
     _initFromUserLocation();
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-check location whenever the screen becomes visible
+    _refreshLocation();
+  }
+
+  void _refreshLocation() {
+    if (widget.userLat != null && widget.userLng != null) {
+      final nearestIsland = DestinationService.findNearestIsland(widget.userLat!, widget.userLng!);
+      if (nearestIsland != null) {
+        if (_userIsland != nearestIsland) {
+          setState(() {
+            _userIsland = nearestIsland;
+            _hasInitializedFromLocation = true;
+          });
+          // Auto-select the nearest island if none is selected
+          if (_selectedIsland == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _selectIsland(nearestIsland);
+            });
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _checkRecentPost() async {
+    if (_selectedIsland == null) return;
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: user.uid)
+          .where('island', isEqualTo: _selectedIsland)
+          .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
+          .limit(1)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _hasPostedRecently = querySnapshot.docs.isNotEmpty;
+        });
+      }
+    } catch (e) {
+      print('Error checking recent posts: $e');
+    }
+  }
   
   void _initFromUserLocation() {
     if (widget.userLat != null && widget.userLng != null && !_hasInitializedFromLocation) {
-      final nearestIsland = _findNearestIsland(widget.userLat!, widget.userLng!);
+      final nearestIsland = DestinationService.findNearestIsland(widget.userLat!, widget.userLng!);
       if (nearestIsland != null) {
         _hasInitializedFromLocation = true;
         _userIsland = nearestIsland; // Store user's actual island
@@ -136,33 +163,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
   
-  String? _findNearestIsland(double userLat, double userLng) {
-    String? nearestIsland;
-    double minDistance = double.infinity;
-    const Distance distance = Distance();
-    
-    for (var entry in _islandCenters.entries) {
-      final d = distance.as(
-        LengthUnit.Kilometer,
-        LatLng(userLat, userLng),
-        entry.value,
-      );
-      if (d < minDistance) {
-        minDistance = d;
-        nearestIsland = entry.key;
-      }
-    }
-    
-    // Only return if within 50km of an island (so far-away users don't auto-select)
-    if (minDistance <= 50) {
-      // Convert to proper case (e.g., 'naxos' -> 'Naxos')
-      return _islands.firstWhere(
-        (island) => island.toLowerCase() == nearestIsland,
-        orElse: () => nearestIsland!,
-      );
-    }
-    return null;
-  }
+
 
   @override
   void dispose() {
@@ -206,6 +207,9 @@ class _MapScreenState extends State<MapScreen> {
     
     FocusScope.of(context).unfocus();
     widget.onToggleNavBar(false); // Hide nav bar
+    
+    // Check if user has posted recently in this island
+    _checkRecentPost();
     
     // Load destinations from Firebase
     _loadDestinations(island);
@@ -575,7 +579,7 @@ class _MapScreenState extends State<MapScreen> {
                                   borderRadius: BorderRadius.circular(15),
                                   border: Border.all(color: primaryBlue, width: 1),
                                 ),
-                                child: widget.hasPosted
+                                child: _hasPostedRecently || _isUserOnSelectedIsland
                                     ? // UNLOCKED: Show Embedded Chat
                                       _buildEmbeddedChat()
                                     : // LOCKED: Show Post to view camera button
@@ -585,7 +589,7 @@ class _MapScreenState extends State<MapScreen> {
                                             // Navigate directly to camera screen
                                             Navigator.push(
                                               context,
-                                              MaterialPageRoute(builder: (context) => const CameraScreen()),
+                                              MaterialPageRoute(builder: (context) => CameraScreen(currentIsland: widget.currentIsland)),
                                             );
                                           },
                                           child: Column(

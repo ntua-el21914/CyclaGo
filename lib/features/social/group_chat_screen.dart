@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cyclago/core/destination_service.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String islandName; // π.χ. "Naxos"
@@ -62,12 +63,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: primaryBlue.withOpacity(0.1),
                 shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: NetworkImage(DestinationService.getIslandImage(widget.islandName)),
+                  fit: BoxFit.cover,
+                ),
               ),
-              child: const Icon(Icons.group, color: primaryBlue, size: 20),
             ),
             const SizedBox(width: 10),
             Text(
