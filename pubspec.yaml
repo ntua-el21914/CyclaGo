@@ -50,7 +50,7 @@ dependencies:
   shared_preferences: ^2.2.2 # For saving simple Login state
 
   # 4. Formatting (Optional but helpful for dates)
-  intl: ^0.19.0
+  intl: ^0.20.2
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
   cloud_firestore: ^6.1.0
