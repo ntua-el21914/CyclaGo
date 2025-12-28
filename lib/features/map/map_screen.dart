@@ -473,9 +473,9 @@ class _MapScreenState extends State<MapScreen> {
                                       height: 36,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.black, width: 3),
+                                        border: Border.all(color: primaryBlue, width: 3),
                                       ),
-                                      child: const Icon(Icons.close, size: 20),
+                                      child: Icon(Icons.close, size: 20, color: primaryBlue),
                                     ),
                                   ),
                                   const Spacer(),
@@ -638,12 +638,12 @@ class _MapScreenState extends State<MapScreen> {
         decoration: BoxDecoration(
           color: isSelected ? primaryBlue : Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.black, width: 1),
+          border: Border.all(color: primaryBlue, width: 1),
         ),
         child: Icon(
           icon,
-          color: isSelected ? Colors.white : Colors.black,
-          size: 28,
+          color: isSelected ? Colors.white : primaryBlue,
+          size: 30,
         ),
       ),
     );
