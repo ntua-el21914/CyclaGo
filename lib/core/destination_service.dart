@@ -72,31 +72,31 @@ class DestinationService {
 
   // Island images for dynamic display
   static const Map<String, String> _islandImages = {
-    'naxos': 'https://www.greeka.com/photos/cyclades/naxos/greeka_galleries/37-1024.jpg',
-    'paros': 'https://www.greeka.com/photos/cyclades/paros/greeka_galleries/01-1024.jpg',
-    'mykonos': 'https://www.greeka.com/photos/cyclades/mykonos/greeka_galleries/01-1024.jpg',
-    'santorini': 'https://www.greeka.com/photos/cyclades/santorini/greeka_galleries/01-1024.jpg',
-    'ios': 'https://www.greeka.com/photos/cyclades/ios/greeka_galleries/01-1024.jpg',
-    'syros': 'https://www.greeka.com/photos/cyclades/syros/greeka_galleries/01-1024.jpg',
-    'tinos': 'https://www.greeka.com/photos/cyclades/tinos/greeka_galleries/01-1024.jpg',
-    'andros': 'https://www.greeka.com/photos/cyclades/andros/greeka_galleries/01-1024.jpg',
-    'kea': 'https://www.greeka.com/photos/cyclades/kea/greeka_galleries/01-1024.jpg',
-    'kythnos': 'https://www.greeka.com/photos/cyclades/kythnos/greeka_galleries/01-1024.jpg',
-    'serifos': 'https://www.greeka.com/photos/cyclades/serifos/greeka_galleries/01-1024.jpg',
-    'sifnos': 'https://www.greeka.com/photos/cyclades/sifnos/greeka_galleries/01-1024.jpg',
-    'folégandros': 'https://www.greeka.com/photos/cyclades/folegandros/greeka_galleries/01-1024.jpg',
-    'sikinos': 'https://www.greeka.com/photos/cyclades/sikinos/greeka_galleries/01-1024.jpg',
-    'amorgos': 'https://www.greeka.com/photos/cyclades/amorgos/greeka_galleries/01-1024.jpg',
-    'anafi': 'https://www.greeka.com/photos/cyclades/anafi/greeka_galleries/01-1024.jpg',
-    'schinoussa': 'https://www.greeka.com/photos/cyclades/schinoussa/greeka_galleries/01-1024.jpg',
-    'donoussa': 'https://www.greeka.com/photos/cyclades/donoussa/greeka_galleries/01-1024.jpg',
-    'kounoupas': 'https://www.greeka.com/photos/cyclades/koufonissi/greeka_galleries/01-1024.jpg',
-    'heraklia': 'https://www.greeka.com/photos/cyclades/heraklia/greeka_galleries/01-1024.jpg',
-    'k Koufonissi': 'https://www.greeka.com/photos/cyclades/koufonissi/greeka_galleries/01-1024.jpg',
-    'p Koufonissi': 'https://www.greeka.com/photos/cyclades/koufonissi/greeka_galleries/01-1024.jpg',
-    'antiparos': 'https://www.greeka.com/photos/cyclades/antiparos/greeka_galleries/01-1024.jpg',
-    'delos': 'https://www.greeka.com/photos/cyclades/delos/greeka_galleries/01-1024.jpg',
-    'rhenia': 'https://www.greeka.com/photos/cyclades/rhenia/greeka_galleries/01-1024.jpg',
+    'naxos': 'https://pixabay.com/get/gd4649f88280a1064bcb9373c30a8054bf02e08ce79ccd7951d9ed5eb90ccd2d4c647892abc7348d20c322f25348274b2_1920.jpg',
+    'paros': 'https://pixabay.com/get/g55d51d33d091294199b237478ea4ffe35c7ce601a7027430ee0465ea75f9557c0665514c5650b6f95ba535babe5b73de_1920.jpg',
+    'mykonos': 'https://pixabay.com/get/g7358abac9c1883288272be3caa5eb8c0c65d58fc1bee02386f55817f3df0a780edc691eb735f7c63e3a4ae30cfb729fc_1920.jpg',
+    'santorini': 'https://pixabay.com/get/geb2909f1720ad603c9cb23d2e34346c390cde602072bbe89569597c665aeb513c777ee1653f7f6cbf9e469284673c66e_1920.jpg',
+    'ios': 'https://pixabay.com/get/g972fa1664fbf7400fb7647604788250df7228df14d032f783d668de6f2b0e5845b5904fdc5d718bf5e01c8d813b27499_1920.jpg',
+    'syros': 'https://pixabay.com/get/g4a470266ab095f09430c31b04d84da1c2561e75fa009da67ba8c6da13d082b97ae70f37c14cb5b377f38bdda79f94259_1920.jpg',
+    'tinos': 'https://pixabay.com/get/g7e3b6cdb90c3af6dc195509adb6b0c7600b9686bf4ef2144568c2f256a1f35e1ed38a1c437fd3490bab4f1da4169022d_1920.jpg',
+    'andros': 'https://pixabay.com/get/ga722f51388877fddf117a7e55b88a9d16c06f9b04eafb531d0fb69b3d1365800915485173cfd8800471fc2d43b0d34fd_1920.jpg',
+    'kea': 'https://pixabay.com/get/g5119961a06b4117ad7f6a6fa9aa11709cff196c4cc47c3938f160c72d58e23dcfa0cfee60e68ec0781522fe2908f035f_1920.jpg',
+    'kythnos': 'https://pixabay.com/get/g5119961a06b4117ad7f6a6fa9aa11709cff196c4cc47c3938f160c72d58e23dcfa0cfee60e68ec0781522fe2908f035f_1920.jpg',
+    'serifos': 'https://pixabay.com/get/ga26a4613afc216b6a5c70c0d21af995e9148726a20daa4ad35844d3631742c7f7e13e28077617861ffd6e240a6dd248a_1920.jpg',
+    'sifnos': 'https://pixabay.com/get/ga5c7aba9559daa35970b28e70c45f07ac3dbd62658a78059c8f64a62c64d12db0b558541e5685f666cec84ce677d9ec1_1920.jpg',
+    'folégandros': 'https://pixabay.com/get/g064cfc85d3a733a3974c066fda9833a59a34805fff5b3449a756689ae6c1d3978de8840bbd83ee4892fb61025baa19dc_1920.jpg',
+    'sikinos': 'https://pixabay.com/get/g4a470266ab095f09430c31b04d84da1c2561e75fa009da67ba8c6da13d082b97ae70f37c14cb5b377f38bdda79f94259_1920.jpg',
+    'amorgos': 'https://pixabay.com/get/gb909f34210f400b399ee6de5fdca0a0319ee8768cc07cefe0252ae457c16cdab4bd9dabb4f259c9d8bbe50db0567e19e_1920.jpg',
+    'anafi': 'https://pixabay.com/get/g51a95b19c9226c0ad9a3c422b4d1911af482215fe90d6fe022564b0e12b3f16df9011094121cacdca2c336fd3bc81d56_1920.jpg',
+    'schinoussa': 'https://pixabay.com/get/g6141a8705169966883701c797cf977fc5a82ec136f87bef4ffb65d44dcdc2960f8da5b388348c55aa272dd4666d958f1_1920.jpg',
+    'donoussa': 'https://pixabay.com/get/g939fa618676370a77cf78e8243a27e66a09aa290f54174e7b950ae0c7487a6bc5dfb2f6886b06844c902c868757a6b3a_1920.jpg',
+    'kounoupas': 'https://pixabay.com/get/g5ae063d4b80e82a6548e5b12700af5f61aae66ec478455b363b9089b34fb2d1a7d9f9c7bf9f193c9cfb91d90c870fd5c_1920.jpg',
+    'heraklia': 'https://pixabay.com/get/ge2fe909776bf9e2f03d8178a969ebbdb1b09e4103d4eb410fb0faad3fb654a5c9d95f177308be9c466cf8a30e94ac11c_1920.jpg',
+    'k Koufonissi': 'https://pixabay.com/get/gdf61f6bd58b59d31be742fcbbdac21e569fbb04badd9bd7d07973f630e00b58095eb8c521c402c8c0d399e3e31382468_1920.jpg',
+    'p Koufonissi': 'https://pixabay.com/get/g2cec497eee786cfc5277fe772213a0317acc9c6ed8ee991aaeeebb21adcd30b94af9205a1039ce87167f7ed5e75a3f3c_1920.jpg',
+    'antiparos': 'https://pixabay.com/get/g2671736f7c32f6acb6ea38d4c7d5195eba1ce49774b407d3ff58ebef196126e86803ed1093625a1ee3bf0abbbf50a247_1920.jpg',
+    'delos': 'https://pixabay.com/get/ged36fa3532a65f3e47ac9c9fc0821e0a31abaf4efb4a51b7072eb4e6b5f0798882f7a9fb70371b7eeae85f043dc553aa_1920.jpg',
+    'rhenia': 'https://pixabay.com/get/g3c9a77a06a0875034bdbb63787a7637534eb2b38739d0d85ca25c3a780488fd4488b67213691ee7b4ecbd88c6e934f21_1920.jpg',
   };
 
   // Island centers for location validation
@@ -206,7 +206,7 @@ class DestinationService {
   /// Get the allowed radius in meters for location validation on an island
   static double getIslandRadius(String islandName) {
     // Define radii per island (in meters)
-    const Map<String, double> _islandRadii = {
+    const Map<String, double> islandRadii = {
       'naxos': 50000, // 50km
       'paros': 40000, // 40km
       'mykonos': 30000, // 30km
@@ -233,7 +233,7 @@ class DestinationService {
       'delos': 5000, // 5km
       'rhenia': 10000, // 10km
     };
-    return _islandRadii[islandName.toLowerCase()] ?? 50000; // Default 50km
+    return islandRadii[islandName.toLowerCase()] ?? 50000; // Default 50km
   }
 
   /// Get the island centers map

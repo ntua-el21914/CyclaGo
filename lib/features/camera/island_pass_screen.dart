@@ -302,7 +302,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                               ),
                               const SizedBox(width: 15),
                               Text(
-                                "${widget.currentIsland ?? "Naxos"} Groupchat",
+                                "${widget.currentIsland} Groupchat",
                                 style: GoogleFonts.hammersmithOne(
                                   fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black,
                                 ),
