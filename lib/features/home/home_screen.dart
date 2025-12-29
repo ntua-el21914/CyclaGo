@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
 // Σιγουρέψου ότι αυτό το import είναι σωστό για το Project σου
-import '../../main.dart'; 
+import '../../main.dart';
+import '../../core/destination_service.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,11 +17,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
    String _displayName = "";
+  List<String> _selectedIslands = [];
+  late PageController _pageController;
+  double _currentPage = 0.0;
 
   @override
   void initState() {
     super.initState();
     _fetchUserName();
+    _selectRandomIslands();
+    Future.microtask(() => _getCurrentIsland());
+    _pageController = PageController(viewportFraction: 1.0);
+    _pageController.addListener(_onPageChanged);
   }
 
   // --- 1. ΛΟΓΙΚΗ ΓΙΑ ΤΟ ΟΝΟΜΑ ΧΡΗΣΤΗ ---
@@ -43,6 +52,43 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     }
+  }
+
+  // --- SELECT RANDOM ISLANDS ---
+  void _selectRandomIslands({String? currentIsland}) {
+    final allIslands = List<String>.from(DestinationService.islands);
+    allIslands.shuffle();
+    if (currentIsland != null && allIslands.contains(currentIsland)) {
+      allIslands.remove(currentIsland);
+      allIslands.insert(0, currentIsland);
+    }
+    _selectedIslands = allIslands.take(4).toList();
+  }
+
+  Future<void> _getCurrentIsland() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+        String? currentIsland = DestinationService.findNearestIsland(position.latitude, position.longitude);
+        if (currentIsland != null && mounted) {
+          setState(() {
+            _selectRandomIslands(currentIsland: currentIsland);
+          });
+        }
+      }
+    } catch (e) {
+      // If location fails, keep random selection
+    }
+  }
+
+  void _onPageChanged() {
+    setState(() {
+      _currentPage = _pageController.page ?? 0;
+    });
   }
 
   void _onItemTapped(int index) {
@@ -92,89 +138,65 @@ class _HomeScreenState extends State<HomeScreen> {
               
               const SizedBox(height: 20),
 
-              // --- 2. ΔΥΝΑΜΙΚΗ ΕΙΚΟΝΑ ΑΠΟ FIREBASE ---
-              StreamBuilder<DocumentSnapshot>(
-                // Ζητάμε το έγγραφο 'naxos' από το collection 'destinations'
-                stream: FirebaseFirestore.instance
-                    .collection('HomeScreen_Images')
-                    .doc('naxos')
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  
-                  // Α. Αν φορτώνει ακόμα
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              // --- ISLAND IMAGES SCROLLABLE ---
+              SizedBox(
+                height: 330,
+                child: PageView(
+                  controller: _pageController,
+                  scrollDirection: Axis.horizontal,
+                  children: List.generate(4, (index) {
+                    final island = _selectedIslands[index];
+                    final imageUrl = DestinationService.islandImages[island.toLowerCase()] ?? '';
+
                     return Container(
-                      height: 200,
-                      width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
                         borderRadius: BorderRadius.circular(10),
+                        color: Colors.white,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x3F000000),
+                            blurRadius: 4,
+                            offset: Offset(0, 4),
+                          )
+                        ],
                       ),
-                      child: const Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  // Β. Αν υπάρχει λάθος ή δεν βρέθηκε το έγγραφο
-                  if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
-                    return Container(
-                      height: 200,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Center(child: Text("Destination info missing")),
-                    );
-                  }
-
-                  // Γ. Όλα καλά - Παίρνουμε τα δεδομένα
-                  final data = snapshot.data!.data() as Map<String, dynamic>;
-                  
-                  // Προσοχή: Τα ονόματα 'title' και 'imageURL' πρέπει να υπάρχουν στη βάση
-                  final String title = data['title'] ?? 'Naxos';
-                  final String imageUrl = data['imageURL'] ?? ''; 
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Εικόνα με τίτλο
-                      Container(
-                        width: double.infinity,
-                        height: 330,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          color: Colors.white,
-                          image: imageUrl.isNotEmpty 
-                            ? DecorationImage(
-                                image: NetworkImage(imageUrl), // Η εικόνα από το Cloudinary/Firebase
-                                fit: BoxFit.cover,
-                              )
-                            : null, // Αν δεν υπάρχει εικόνα, μην σκάσεις
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x3F000000),
-                              blurRadius: 4,
-                              offset: Offset(0, 4),
-                            )
-                          ],
-                        ),
                         child: Stack(
+                          fit: StackFit.expand,
                           children: [
-                            // 1. Εικονίδιο αν δεν υπάρχει εικόνα (στο κέντρο)
-                            if (imageUrl.isEmpty)
-                              const Center(child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey)),
-
-                            // 2. Το όνομα του νησιού (Πάνω Αριστερά)
+                            if (imageUrl.isNotEmpty)
+                              Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: const Center(child: CircularProgressIndicator()),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[200],
+                                    child: const Center(child: Icon(Icons.error)),
+                                  );
+                                },
+                              )
+                            else
+                              Container(
+                                color: Colors.grey[200],
+                                child: const Center(child: Icon(Icons.image_not_supported)),
+                              ),
                             Positioned(
-                              top: 20,  // Απόσταση από πάνω
-                              left: 20, // Απόσταση από αριστερά
+                              top: 20,
+                              left: 20,
                               child: Text(
-                                title, // Η μεταβλητή τίτλου από το Firestore
+                                island,
                                 style: GoogleFonts.hammersmithOne(
-                                  color: primaryBlue, // Λευκό χρώμα για να φαίνεται πάνω στην εικόνα
+                                  color: primaryBlue,
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
-                                  // Προσθέτουμε σκιά (Shadow) για να διαβάζεται ακόμα και σε λευκές εικόνες
                                   shadows: [
                                     const Shadow(
                                       offset: Offset(0, 2),
@@ -188,9 +210,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                    ],
+                    );
+                  }),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Page Indicator
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(4, (index) {
+                  return Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentPage.round() ? primaryBlue : Colors.grey.withOpacity(0.5),
+                    ),
                   );
-                },
+                }),
               ),
 
               const SizedBox(height: 30),
