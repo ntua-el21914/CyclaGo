@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      extendBody: true, // Για να είναι το nav bar από πάνω
+      extendBody: true, // Allow body to extend behind nav bar
       
       // --- NAVIGATION BAR ---
       bottomNavigationBar: CustomNavBar(
@@ -114,10 +114,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 140),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: ShaderMask(
+          shaderCallback: (Rect bounds) {
+            return LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.white, Colors.white, Colors.transparent, Colors.transparent],
+              stops: [0.0, 0.95, 0.95, 1.0], // Sharp cutoff at 90%
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.dstIn,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 140),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // --- HEADER (Hello User) ---
               RichText(
@@ -352,6 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      )
     );
   }
 }
