@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,12 +9,17 @@ import 'package:cyclago/core/global_data.dart';
 import 'package:cyclago/core/destination_service.dart';
 
 class IslandPassScreen extends StatefulWidget {
-  // Receive location status from MainScaffold
+  // Receive location status and data from MainScaffold
   final bool isLocationValid;
   final VoidCallback? onRetry;
   final String? currentIsland;
 
-  const IslandPassScreen({super.key, required this.isLocationValid, this.onRetry, this.currentIsland});
+  const IslandPassScreen({
+    super.key,
+    required this.isLocationValid,
+    this.onRetry,
+    this.currentIsland,
+  });
 
   @override
   State<IslandPassScreen> createState() => _IslandPassScreenState();
@@ -22,6 +28,7 @@ class IslandPassScreen extends StatefulWidget {
 class _IslandPassScreenState extends State<IslandPassScreen> {
   bool _isRetrying = false;
   bool _hasPostedRecently = false;
+  bool _isLoadingPostCheck = true;
 
   @override
   void initState() {
@@ -49,17 +56,24 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     _checkRecentPost();
   }
 
+  // --- 🕒 24-HOUR POST CHECK LOGIC ---
   Future<void> _checkRecentPost() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        if (mounted) setState(() => _isLoadingPostCheck = false);
+        return;
+      }
 
       final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
       final currentIsland = widget.currentIsland ?? 'Naxos';
-      
+
+      // Check if this specific user has posted on this specific island in the last 24h
+      // Note: You should ensure your upload process saves 'userId' or 'username' to the post document.
       final querySnapshot = await FirebaseFirestore.instance
           .collection('posts')
-          .where('userId', isEqualTo: user.uid)
+          // Assuming you saved 'userId' (recommended). If you saved 'username', change to: .where('username', isEqualTo: user.displayName)
+          .where('userId', isEqualTo: user.uid) 
           .where('island', isEqualTo: currentIsland)
           .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
           .limit(1)
@@ -68,29 +82,38 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
       if (mounted) {
         setState(() {
           _hasPostedRecently = querySnapshot.docs.isNotEmpty;
+          _isLoadingPostCheck = false;
         });
       }
     } catch (e) {
       print('Error checking recent posts: $e');
+      if (mounted) setState(() => _isLoadingPostCheck = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
 
-    // If user has posted recently in this island OR has valid location, show unlocked screen
-    final bool shouldShowUnlocked = _hasPostedRecently || widget.isLocationValid;
-
-    // 1. INVALID LOCATION (Your exact design)
-    if (!shouldShowUnlocked && !widget.isLocationValid) {
+    // 1. INVALID LOCATION (Priority 1)
+    // If location is invalid AND they haven't unlocked it via posting recently
+    if (!widget.isLocationValid && !_hasPostedRecently) {
       return _buildInvalidLocationScreen(primaryBlue);
     }
 
-    // 2. VALID LOCATION (Feed + Chat) or user has posted recently
+    // 2. LOADING POST STATUS
+    if (_isLoadingPostCheck) {
+       return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator(color: primaryBlue)),
+      );
+    }
+
+    // 3. VALID LOCATION (Check if Locked or Unlocked based on posting)
     return _buildValidIslandPass(primaryBlue);
   }
 
-  // --- ❌ INVALID LOCATION SCREEN (Fixed Width/Height) ---
+  // --- ❌ INVALID LOCATION SCREEN ---
   Widget _buildInvalidLocationScreen(Color primaryBlue) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -117,14 +140,13 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
             
             // Error Content
             Expanded(
-              // SingleChildScrollView prevents error on small screens if height 600 is too big
               child: SingleChildScrollView( 
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20.0),
                     child: Container(
-                      width: 364, // Fixed Width from your code
-                      height: 600, // Fixed Height from your code
+                      width: 364, // Fixed Width
+                      height: 600, // Fixed Height
                       clipBehavior: Clip.antiAlias,
                       decoration: ShapeDecoration(
                         color: Colors.white,
@@ -135,7 +157,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                       ),
                       child: Stack(
                         children: [
-                          // 1. Icon (Centered horizontally)
+                          // 1. Icon
                           Positioned(
                             left: 0, 
                             right: 0,
@@ -169,19 +191,19 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                             ),
                           ),
 
-                          // 3. "Try again?" Button (Clickable)
+                          // 3. "Try again?" Button
                           Positioned(
-                            left: 117, // Centered roughly (364 - 130) / 2
+                            left: 117, 
                             top: 450,
                             child: GestureDetector(
                               onTap: _isRetrying ? null : () async {
                                 if (widget.onRetry != null) {
                                   setState(() => _isRetrying = true);
-                                  await Future.delayed(const Duration(milliseconds: 100)); // Small delay for UI feedback
+                                  // Give UI time to update to loading state
+                                  await Future.delayed(const Duration(milliseconds: 100)); 
                                   widget.onRetry!();
-                                  // Note: We don't set _isRetrying = false here because the parent will rebuild when location check completes
-                                } else {
-                                  print("Retry clicked");
+                                  // Note: _isRetrying remains true until the parent widget (MainScaffold) 
+                                  // updates the isLocationValid parameter, causing this widget to rebuild.
                                 }
                               },
                               child: Container(
@@ -196,21 +218,21 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                                 ),
                                 child: Center(
                                   child: _isRetrying
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 20,
                                         height: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1269C7)),
+                                          valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
                                         ),
                                       )
                                     : Text(
-                                        'Try again?',
-                                        style: GoogleFonts.hammersmithOne(
-                                          color: _isRetrying ? primaryBlue : Colors.white,
-                                          fontSize: 18,
-                                        ),
+                                      'Try again?',
+                                      style: GoogleFonts.hammersmithOne(
+                                        color: _isRetrying ? primaryBlue : Colors.white,
+                                        fontSize: 18,
                                       ),
+                                    ),
                                 ),
                               ),
                             ),
@@ -228,10 +250,11 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     );
   }
 
-  // --- ✅ VALID SCREEN (FEED + CHAT) ---
+  // --- ✅ VALID SCREEN (Handles Locked vs Unlocked Internally) ---
   Widget _buildValidIslandPass(Color primaryBlue) {
-    bool hasPosted = GlobalFeedData.posts.isNotEmpty;
+    // Dynamic Padding
     final double bottomPadding = MediaQuery.of(context).padding.bottom + 100;
+    final String displayIsland = widget.currentIsland ?? "Naxos";
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -244,7 +267,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
               padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border(bottom: BorderSide(width: 1, color: primaryBlue)),
+                border: Border(bottom: BorderSide(width: 1.5, color: primaryBlue)),
               ),
               child: Center(
                 child: Text(
@@ -264,14 +287,14 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                   children: [
                     const SizedBox(height: 20),
                     
-                    // --- GROUP CHAT BUTTON ---
+                    // --- GROUP CHAT BUTTON (Only visible if Unlocked) ---
                     if (_hasPostedRecently) ...[
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => GroupChatScreen(islandName: widget.currentIsland ?? "Naxos"),
+                              builder: (context) => GroupChatScreen(islandName: displayIsland),
                             ),
                           );
                         },
@@ -289,20 +312,26 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                           child: Row(
                             children: [
                               const SizedBox(width: 10),
+                              // Island Icon (Dynamic)
                               Container(
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   image: DecorationImage(
-                                    image: NetworkImage(DestinationService.getIslandImage(widget.currentIsland ?? "Naxos")),
+                                    // Use dynamic image if available
+                                    image: NetworkImage(
+                                      DestinationService.getIslandImage(displayIsland)
+                                    ),
                                     fit: BoxFit.cover,
+                                    // Fallback if image fails
+                                    onError: (e, s) {}, 
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 15),
                               Text(
-                                "${widget.currentIsland} Groupchat",
+                                "$displayIsland Groupchat",
                                 style: GoogleFonts.hammersmithOne(
                                   fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black,
                                 ),
@@ -316,13 +345,14 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 20),
                     ],
 
                     // --- FEED AREA ---
                     Expanded(
-                      child: _buildRealSocialFeed(primaryBlue, bottomPadding),
+                      child: _hasPostedRecently
+                        ? _buildRealSocialFeed(primaryBlue, bottomPadding)
+                        : _buildEmptyState(context, primaryBlue),
                     ),
                   ],
                 ),
@@ -334,7 +364,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     );
   }
 
-  // --- LOCKED STATE ---
+  // --- LOCKED STATE (Camera Button) ---
   Widget _buildEmptyState(BuildContext context, Color primaryBlue) {
     return Container(
       width: double.infinity,
@@ -348,11 +378,14 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           GestureDetector(
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              // 1. Go to Camera Screen to take photo & upload
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => CameraScreen(currentIsland: widget.currentIsland)),
               );
+              // 2. When they come back (after posting), refresh the 24h check
+              _checkRecentPost();
             },
             child: Container(
               padding: const EdgeInsets.all(20),
@@ -375,45 +408,14 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     );
   }
 
-  // --- COOLDOWN STATE (Posted recently, can't post again today) ---
-  Widget _buildCooldownState(Color primaryBlue) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 30),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryBlue, width: 1.5),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.access_time, size: 60, color: primaryBlue),
-          const SizedBox(height: 20),
-          Text(
-            "You've already posted today!",
-            style: GoogleFonts.hammersmithOne(
-              fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "Come back tomorrow to post again",
-            style: GoogleFonts.hammersmithOne(
-              fontSize: 16, color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- UNLOCKED FEED ---
+  // --- UNLOCKED FEED (Last 24h Posts) ---
   Widget _buildRealSocialFeed(Color primaryBlue, double bottomPadding) {
+    final String targetIsland = widget.currentIsland ?? 'Naxos';
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('posts')
-          .where('island', isEqualTo: widget.currentIsland ?? 'Naxos')
+          .where('island', isEqualTo: targetIsland)
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -421,66 +423,53 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
           return Center(child: CircularProgressIndicator(color: primaryBlue));
         }
 
-        final docs = snapshot.data?.docs ?? [];
-        
-        // If user has posted recently but no posts are showing yet, show loading
-        if (docs.isEmpty && _hasPostedRecently) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: primaryBlue),
-                const SizedBox(height: 20),
-                Text(
-                  "Loading your post...",
-                  style: GoogleFonts.hammersmithOne(
-                    fontSize: 16, 
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+        // Filter 24h client-side to ensure it works even without complex Firestore indexes
+        final now = DateTime.now();
+        final docs = snapshot.data?.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['timestamp'] == null) return false;
+          final Timestamp ts = data['timestamp'];
+          // Keep posts newer than 24h
+          return now.difference(ts.toDate()).inHours < 24;
+        }).toList() ?? [];
         
         if (docs.isEmpty) {
-          return _buildEmptyState(context, primaryBlue);
+          return Center(child: Text("No posts in the last 24h.\nBe the first!", textAlign: TextAlign.center, style: GoogleFonts.hammersmithOne()));
         }
 
         return GridView.builder(
           padding: EdgeInsets.only(bottom: bottomPadding, top: 10),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.8,
+            crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.8,
           ),
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             final String imageUrl = data['imageUrl'] ?? '';
-            final String username = data['username'] ?? 'Cyclist';
+            
+            // --- USERNAME LOGIC IS HERE ---
+            // It tries to get 'username' from Firestore. If missing, defaults to 'Cyclist'.
+            final String username = data['username'] ?? 'Cyclist'; 
 
             return Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 color: Colors.black,
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5)
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5)],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
+                    // Image
                     Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                         return Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey));
-                      },
+                      errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
                     ),
+
+                    // Gradient for text visibility
                     Positioned(
                       bottom: 0, left: 0, right: 0,
                       child: Container(
@@ -488,12 +477,13 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [Colors.black.withOpacity(0.8), Colors.transparent],
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
+                            begin: Alignment.bottomCenter, end: Alignment.topCenter,
                           ),
                         ),
                       ),
                     ),
+
+                    // Username Display
                     Positioned(
                       bottom: 12, left: 12,
                       child: Text(
@@ -502,6 +492,9 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                           color: Colors.white, 
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
+                          shadows: [
+                            const Shadow(offset: Offset(0, 1), blurRadius: 2, color: Colors.black),
+                          ],
                         ),
                       ),
                     ),
