@@ -379,29 +379,6 @@ class _TripViewScreenState extends State<TripViewScreen> {
                     ),
                   ],
                 ),
-                // Arrows below container
-                if (!_isDayDropdownOpen)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 60, top: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.arrow_left, color: _selectedDay > 1 ? primaryBlue : Colors.grey, size: 36),
-                          onPressed: _selectedDay > 1 ? () => setState(() { _selectedDay--; }) : null,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        const SizedBox(width: 40),
-                        IconButton(
-                          icon: Icon(Icons.arrow_right, color: _selectedDay < _tripDays.length ? primaryBlue : Colors.grey, size: 36),
-                          onPressed: _selectedDay < _tripDays.length ? () => setState(() { _selectedDay++; }) : null,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                  ),
               ],
             ),
           ),

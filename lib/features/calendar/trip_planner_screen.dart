@@ -76,10 +76,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   ];
 
   String get _dateRangeText {
-    if (_startDate == null || _endDate == null) {
+    if (_startDate == null && _endDate == null) {
       return '__/__/__ - __/__/__';
     }
-    return '${_formatDate(_startDate!)} - ${_formatDate(_endDate!)}';
+    final startStr = _startDate != null ? _formatDate(_startDate!) : '__/__/__';
+    final endStr = _endDate != null ? _formatDate(_endDate!) : '__/__/__';
+    return '$startStr - $endStr';
   }
 
   String _formatDate(DateTime date) {
@@ -712,7 +714,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               // Date range picker (inline expandable)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width: 270,
+                width: 310,
                 height: _isDatePickerOpen ? 300 : 50,
                 decoration: ShapeDecoration(
                   color: Colors.white,
@@ -735,7 +737,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                         });
                       },
                       child: Container(
-                        width: 270,
+                        width: 310,
                         height: 48,
                         decoration: _isDatePickerOpen
                             ? const BoxDecoration(
@@ -755,7 +757,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                                   _dateRangeText,
                                   style: GoogleFonts.hammersmithOne(
                                     color: Colors.black,
-                                    fontSize: 20,
+                                    fontSize: 17,
                                   ),
                                 ),
                               ),

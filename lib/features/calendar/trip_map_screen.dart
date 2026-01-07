@@ -327,7 +327,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
           // DAY SELECTOR (Top) - Inline expandable dropdown
           Positioned(
-            top: 70,
+            top: 50,
             left: 20,
             right: 20,
             child: Column(
@@ -513,33 +513,6 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 ),
               ],
             ),
-            // Left/Right arrows BELOW the container (when collapsed)
-            if (!_isDayDropdownOpen)
-              Padding(
-                padding: const EdgeInsets.only(left: 60, top: 4), // offset for "DAY:" label
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_left, color: _selectedDay > 1 ? primaryBlue : Colors.grey, size: 36),
-                      onPressed: _selectedDay > 1 
-                          ? () => setState(() { _selectedDay--; _selectedCategory = 0; })
-                          : null,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                    const SizedBox(width: 40),
-                    IconButton(
-                      icon: Icon(Icons.arrow_right, color: _selectedDay < _tripDays.length ? primaryBlue : Colors.grey, size: 36),
-                      onPressed: _selectedDay < _tripDays.length 
-                          ? () => setState(() { _selectedDay++; _selectedCategory = 0; })
-                          : null,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
