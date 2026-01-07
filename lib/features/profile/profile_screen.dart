@@ -16,6 +16,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _bio = "";
   int _postCount = 0;
   String? _profilePictureUrl;
+  Map<String, List<Map<String, dynamic>>> _postsByIsland = {};
 
   @override
   void initState() {
@@ -26,6 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      // Fetch user profile data
       final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: user.email)
@@ -38,16 +40,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _displayName =
                 userData['username'] ?? userData['email'] ?? "Traveller";
             _bio = userData['bio'] ?? "";
-            _postCount = userData['postCount'] ?? 0;
             _profilePictureUrl = userData['profilePictureUrl'];
           });
         }
+      }
+
+      // Fetch user's posts and group by island
+      try {
+        final postsSnapshot = await FirebaseFirestore.instance
+            .collection('posts')
+            .where('userId', isEqualTo: user.uid)
+            .orderBy('timestamp', descending: true)
+            .get();
+
+        final Map<String, List<Map<String, dynamic>>> groupedPosts = {};
+        for (var doc in postsSnapshot.docs) {
+          final data = doc.data();
+          final island = data['island'] ?? 'Unknown';
+          groupedPosts.putIfAbsent(island, () => []).add(data);
+        }
+
+        if (mounted) {
+          setState(() {
+            _postsByIsland = groupedPosts;
+            _postCount = postsSnapshot.docs.length;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error fetching posts: $e');
       }
     }
   }
 
   Widget _buildPostsSection() {
-    if (_postCount == 0) {
+    if (_postsByIsland.isEmpty) {
       // No posts - show centered message
       return SizedBox(
         height: 200,
@@ -63,67 +89,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     } else {
-      // Has posts - show trip content
+      // Has posts - show trip content grouped by island
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Trip Title
-          Padding(
-            padding: const EdgeInsets.only(left: 14),
-            child: Text(
-              'Trip to Naxos',
-              style: GoogleFonts.hammersmithOne(
-                color: Colors.black,
-                fontSize: 28,
-                fontWeight: FontWeight.w400,
+        children: _postsByIsland.entries.map((entry) {
+          final islandName = entry.key;
+          final posts = entry.value;
+          
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Trip Title
+              Padding(
+                padding: const EdgeInsets.only(left: 14),
+                child: Text(
+                  'Trip to $islandName',
+                  style: GoogleFonts.hammersmithOne(
+                    color: Colors.black,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Trip Images Grid
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11),
-            child: SizedBox(
-              height: 124,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        image: DecorationImage(
-                          image: NetworkImage("https://placehold.co/124x124"),
-                          fit: BoxFit.cover,
+              const SizedBox(height: 20),
+              // Trip Images Grid - show up to 3 images per row
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 11),
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: posts.take(6).map((post) {
+                    final imageUrl = post['imageUrl'] as String?;
+                    return SizedBox(
+                      width: (MediaQuery.of(context).size.width - 44) / 3,
+                      height: 124,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          image: imageUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(imageUrl),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          color: imageUrl == null ? const Color(0xFFE0E0E0) : null,
                         ),
+                        child: imageUrl == null
+                            ? const Icon(Icons.image, color: Color(0xFF9E9E9E))
+                            : null,
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        image: DecorationImage(
-                          image: NetworkImage("https://placehold.co/124x124"),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        image: DecorationImage(
-                          image: NetworkImage("https://placehold.co/124x124"),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          ),
-        ],
+              const SizedBox(height: 30),
+            ],
+          );
+        }).toList(),
       );
     }
   }
