@@ -1,8 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import '../auth/login_screen.dart';
+import 'circular_crop_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -61,6 +66,251 @@ class SettingsScreen extends StatelessWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error deleting account: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleEditProfilePhoto(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Show choice dialog
+    final ImageSource? source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Profile Photo',
+          style: GoogleFonts.hammersmithOne(),
+        ),
+        content: Text(
+          'Choose how to set your profile photo:',
+          style: GoogleFonts.hammersmithOne(fontSize: 16),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.camera),
+            icon: const Icon(Icons.camera_alt, color: Color(0xFF1269C7)),
+            label: Text(
+              'Camera',
+              style: GoogleFonts.hammersmithOne(color: const Color(0xFF1269C7)),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.gallery),
+            icon: const Icon(Icons.photo_library, color: Color(0xFF1269C7)),
+            label: Text(
+              'Gallery',
+              style: GoogleFonts.hammersmithOne(color: const Color(0xFF1269C7)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (source == null) return;
+
+    try {
+      // Pick image from selected source
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: source,
+        preferredCameraDevice: CameraDevice.front,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      // Read image bytes
+      final imageBytes = await image.readAsBytes();
+
+      if (!context.mounted) return;
+
+      // Open custom circular crop screen
+      final croppedBytes = await Navigator.push<dynamic>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CircularCropScreen(imageBytes: imageBytes),
+        ),
+      );
+
+      if (croppedBytes == null || !context.mounted) return;
+
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF1269C7),
+          ),
+        ),
+      );
+
+      try {
+        debugPrint('Starting upload... bytes: ${croppedBytes.length}');
+        
+        // Upload to Firebase Storage with timeout
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('profile_pictures')
+            .child('${user.uid}.png');
+
+        debugPrint('Uploading to: ${storageRef.fullPath}');
+        
+        await storageRef.putData(
+          croppedBytes,
+          SettableMetadata(contentType: 'image/png'),
+        ).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw Exception('Upload timed out after 30 seconds'),
+        );
+
+        debugPrint('Upload complete, getting URL...');
+
+        // Get download URL
+        final downloadUrl = await storageRef.getDownloadURL();
+        debugPrint('Got URL: $downloadUrl');
+
+        // Update Firestore
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: user.email)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          await querySnapshot.docs.first.reference.update({
+            'profilePictureUrl': downloadUrl,
+          });
+        } else {
+          await FirebaseFirestore.instance.collection('users').add({
+            'email': user.email,
+            'profilePictureUrl': downloadUrl,
+          });
+        }
+
+        debugPrint('Firestore updated!');
+
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile photo updated!')),
+          );
+        }
+      } catch (uploadError) {
+        debugPrint('Upload error: $uploadError');
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Upload failed: $uploadError'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('General error: $e');
+      if (context.mounted) {
+        // Try to close dialog if it exists
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleEditProfileName(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Get current profile name
+    String currentName = '';
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('email', isEqualTo: user.email)
+        .get();
+
+    if (querySnapshot.docs.isNotEmpty) {
+      final userData = querySnapshot.docs.first.data();
+      currentName = userData['username'] ?? '';
+    }
+
+    final controller = TextEditingController(text: currentName);
+
+    if (!context.mounted) return;
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Edit Profile Name',
+          style: GoogleFonts.hammersmithOne(),
+        ),
+        content: TextField(
+          controller: controller,
+          maxLength: 30,
+          decoration: InputDecoration(
+            hintText: 'Enter your name...',
+            hintStyle: GoogleFonts.hammersmithOne(color: Colors.grey),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF1269C7)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF1269C7), width: 2),
+            ),
+          ),
+          style: GoogleFonts.hammersmithOne(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.hammersmithOne(color: const Color(0xFF1269C7)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text(
+              'Save',
+              style: GoogleFonts.hammersmithOne(color: const Color(0xFF1269C7)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty && context.mounted) {
+      try {
+        // Update Firestore
+        if (querySnapshot.docs.isNotEmpty) {
+          await querySnapshot.docs.first.reference.update({
+            'username': newName,
+          });
+        } else {
+          // Create new user document if it doesn't exist
+          await FirebaseFirestore.instance.collection('users').add({
+            'email': user.email,
+            'username': newName,
+          });
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile name updated!')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error updating profile name: $e')),
           );
         }
       }
@@ -228,26 +478,14 @@ class SettingsScreen extends StatelessWidget {
                     _SettingsItem(
                       icon: Icons.photo_camera,
                       title: 'Profile photo',
-                      onTap: () {
-                        // TODO: Implement profile photo change
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Profile photo - Coming soon!')),
-                        );
-                      },
+                      onTap: () => _handleEditProfilePhoto(context),
                     ),
                     const SizedBox(height: 12),
                     // Profile Name
                     _SettingsItem(
                       icon: Icons.person,
                       title: 'Profile name',
-                      onTap: () {
-                        // TODO: Implement profile name change
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Profile name - Coming soon!')),
-                        );
-                      },
+                      onTap: () => _handleEditProfileName(context),
                     ),
                     const SizedBox(height: 12),
                     // Profile Description

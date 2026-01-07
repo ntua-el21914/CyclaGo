@@ -13,7 +13,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String _displayName = "Traveller";
-  String _bio = "Get ready Greece, here i come!";
+  String _bio = "";
+  int _postCount = 0;
+  String? _profilePictureUrl;
 
   @override
   void initState() {
@@ -35,10 +37,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
           setState(() {
             _displayName =
                 userData['username'] ?? userData['email'] ?? "Traveller";
-            _bio = userData['bio'] ?? "Get ready Greece, here i come!";
+            _bio = userData['bio'] ?? "";
+            _postCount = userData['postCount'] ?? 0;
+            _profilePictureUrl = userData['profilePictureUrl'];
           });
         }
       }
+    }
+  }
+
+  Widget _buildPostsSection() {
+    if (_postCount == 0) {
+      // No posts - show centered message
+      return SizedBox(
+        height: 200,
+        child: Center(
+          child: Text(
+            'No posts yet!',
+            style: GoogleFonts.hammersmithOne(
+              color: const Color(0xFF737373),
+              fontSize: 24,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      );
+    } else {
+      // Has posts - show trip content
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Trip Title
+          Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: Text(
+              'Trip to Naxos',
+              style: GoogleFonts.hammersmithOne(
+                color: Colors.black,
+                fontSize: 28,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Trip Images Grid
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11),
+            child: SizedBox(
+              height: 124,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        image: DecorationImage(
+                          image: NetworkImage("https://placehold.co/124x124"),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        image: DecorationImage(
+                          image: NetworkImage("https://placehold.co/124x124"),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        image: DecorationImage(
+                          image: NetworkImage("https://placehold.co/124x124"),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
     }
   }
 
@@ -103,27 +189,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Padding(
                             padding: const EdgeInsets.only(left: 43),
                             child: Container(
-                              width: 90,
-                              height: 90,
-                              decoration: ShapeDecoration(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFFE0E0E0),
+                                border: Border.all(
+                                  color: const Color(0xFF1269C7),
+                                  width: 2,
                                 ),
+                                image: _profilePictureUrl != null
+                                    ? DecorationImage(
+                                        image: NetworkImage(_profilePictureUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
                               ),
-                              child: Center(
-                                child: Container(
-                                  width: 76,
-                                  height: 76,
-                                  decoration: BoxDecoration(
-                                    image: const DecorationImage(
-                                      image: NetworkImage(
-                                          "https://placehold.co/76x76"),
-                                      fit: BoxFit.fill,
-                                    ),
-                                    borderRadius: BorderRadius.circular(9999),
-                                  ),
-                                ),
-                              ),
+                              child: _profilePictureUrl == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: Color(0xFF9E9E9E),
+                                    )
+                                  : null,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -161,65 +249,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: const Color(0xFF1269C7),
                     ),
                     const SizedBox(height: 17),
-                    // Trip Title
-                    Padding(
-                      padding: const EdgeInsets.only(left: 14),
-                      child: Text(
-                        'Trip to Naxos',
-                        style: GoogleFonts.hammersmithOne(
-                          color: Colors.black,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Trip Images Grid
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 11),
-                      child: SizedBox(
-                        height: 124,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  image: DecorationImage(
-                                    image: NetworkImage(
-                                        "https://placehold.co/124x124"),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  image: DecorationImage(
-                                    image: NetworkImage(
-                                        "https://placehold.co/124x124"),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  image: DecorationImage(
-                                    image: NetworkImage(
-                                        "https://placehold.co/124x124"),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    // Conditional: Show posts or "No posts yet!"
+                    _buildPostsSection(),
                     // Add padding at bottom for nav bar
                     const SizedBox(height: 140),
                   ],
