@@ -579,7 +579,7 @@ class _MapScreenState extends State<MapScreen> {
                                   borderRadius: BorderRadius.circular(15),
                                   border: Border.all(color: primaryBlue, width: 1),
                                 ),
-                                child: _hasPostedRecently || _isUserOnSelectedIsland
+                                child: _hasPostedRecently
                                     ? // UNLOCKED: Show Embedded Chat
                                       _buildEmbeddedChat()
                                     : // LOCKED: Show Post to view camera button
@@ -702,9 +702,9 @@ class _MapScreenState extends State<MapScreen> {
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
                   final msg = messages[index].data() as Map<String, dynamic>;
-                  final username = msg['username'] ?? 'Anonymous';
+                  final username = msg['senderName'] ?? 'Anonymous';
                   final text = msg['text'] ?? '';
-                  final isMe = msg['userId'] == FirebaseAuth.instance.currentUser?.uid;
+                  final isMe = msg['senderId'] == FirebaseAuth.instance.currentUser?.uid;
                   
                   return Align(
                     alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -816,8 +816,8 @@ class _MapScreenState extends State<MapScreen> {
         .collection('messages')
         .add({
       'text': _chatController.text.trim(),
-      'username': username,
-      'userId': user.uid,
+      'senderName': username,
+      'senderId': user.uid,
       'timestamp': FieldValue.serverTimestamp(),
     });
     
