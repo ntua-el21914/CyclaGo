@@ -72,6 +72,202 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showExpandedImage(String imageUrl, Map<String, dynamic> post) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(20),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Expanded Image
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          width: 200,
+                          height: 200,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF1269C7),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              // Three-dot Menu Button (top right)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: PopupMenuButton<String>(
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.more_vert,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onSelected: (value) async {
+                    if (value == 'delete') {
+                      Navigator.of(context).pop();
+                      await _deletePost(post);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.delete_outline,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Delete Post',
+                            style: GoogleFonts.hammersmithOne(
+                              color: Colors.red,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _deletePost(Map<String, dynamic> post) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Delete Post',
+            style: GoogleFonts.hammersmithOne(
+              fontSize: 22,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete this post? This action cannot be undone.',
+            style: GoogleFonts.hammersmithOne(
+              fontSize: 16,
+              color: const Color(0xFF737373),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.hammersmithOne(
+                  color: const Color(0xFF737373),
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.hammersmithOne(
+                  color: Colors.red,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      try {
+        // Find and delete the post from Firestore
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final postsQuery = await FirebaseFirestore.instance
+              .collection('posts')
+              .where('userId', isEqualTo: user.uid)
+              .where('imageUrl', isEqualTo: post['imageUrl'])
+              .get();
+
+          for (var doc in postsQuery.docs) {
+            await doc.reference.delete();
+          }
+
+          // Refresh the posts
+          await _fetchUserData();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Post deleted successfully',
+                  style: GoogleFonts.hammersmithOne(),
+                ),
+                backgroundColor: const Color(0xFF1269C7),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error deleting post: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Failed to delete post',
+                style: GoogleFonts.hammersmithOne(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildPostsSection() {
     if (_postsByIsland.isEmpty) {
       // No posts - show centered message
@@ -120,23 +316,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   runSpacing: 10,
                   children: posts.take(6).map((post) {
                     final imageUrl = post['imageUrl'] as String?;
-                    return SizedBox(
-                      width: (MediaQuery.of(context).size.width - 44) / 3,
-                      height: 124,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          image: imageUrl != null
-                              ? DecorationImage(
-                                  image: NetworkImage(imageUrl),
-                                  fit: BoxFit.cover,
-                                )
+                    return GestureDetector(
+                      onTap: imageUrl != null
+                          ? () => _showExpandedImage(imageUrl, post)
+                          : null,
+                      child: SizedBox(
+                        width: (MediaQuery.of(context).size.width - 44) / 3,
+                        height: 124,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            image: imageUrl != null
+                                ? DecorationImage(
+                                    image: NetworkImage(imageUrl),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                            color: imageUrl == null ? const Color(0xFFE0E0E0) : null,
+                          ),
+                          child: imageUrl == null
+                              ? const Icon(Icons.image, color: Color(0xFF9E9E9E))
                               : null,
-                          color: imageUrl == null ? const Color(0xFFE0E0E0) : null,
                         ),
-                        child: imageUrl == null
-                            ? const Icon(Icons.image, color: Color(0xFF9E9E9E))
-                            : null,
                       ),
                     );
                   }).toList(),
@@ -207,33 +408,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                           ),
-                          // Profile Picture
+                          // Profile Picture and Stats
                           Padding(
-                            padding: const EdgeInsets.only(left: 43),
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color(0xFFE0E0E0),
-                                border: Border.all(
-                                  color: const Color(0xFF1269C7),
-                                  width: 2,
+                            padding: const EdgeInsets.only(left: 43, right: 20),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Profile Picture
+                                Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(0xFFE0E0E0),
+                                    border: Border.all(
+                                      color: const Color(0xFF1269C7),
+                                      width: 2,
+                                    ),
+                                    image: _profilePictureUrl != null
+                                        ? DecorationImage(
+                                            image: NetworkImage(_profilePictureUrl!),
+                                            fit: BoxFit.cover,
+                                          )
+                                        : null,
+                                  ),
+                                  child: _profilePictureUrl == null
+                                      ? const Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Color(0xFF9E9E9E),
+                                        )
+                                      : null,
                                 ),
-                                image: _profilePictureUrl != null
-                                    ? DecorationImage(
-                                        image: NetworkImage(_profilePictureUrl!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
-                              ),
-                              child: _profilePictureUrl == null
-                                  ? const Icon(
-                                      Icons.person,
-                                      size: 40,
-                                      color: Color(0xFF9E9E9E),
-                                    )
-                                  : null,
+                                const SizedBox(width: 30),
+                                // Islands Visited Counter
+                                Column(
+                                  children: [
+                                    Text(
+                                      '${_postsByIsland.length}',
+                                      style: GoogleFonts.hammersmithOne(
+                                        color: const Color(0xFF1269C7),
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Islands',
+                                      style: GoogleFonts.hammersmithOne(
+                                        color: const Color(0xFF737373),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 30),
+                                // Posts Counter
+                                Column(
+                                  children: [
+                                    Text(
+                                      '$_postCount',
+                                      style: GoogleFonts.hammersmithOne(
+                                        color: const Color(0xFF1269C7),
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Posts',
+                                      style: GoogleFonts.hammersmithOne(
+                                        color: const Color(0xFF737373),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 10),

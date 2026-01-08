@@ -474,13 +474,6 @@ class SettingsScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 11),
-                    // Profile Photo
-                    _SettingsItem(
-                      icon: Icons.photo_camera,
-                      title: 'Profile photo',
-                      onTap: () => _handleEditProfilePhoto(context),
-                    ),
-                    const SizedBox(height: 12),
                     // Profile Name
                     _SettingsItem(
                       icon: Icons.person,
@@ -493,6 +486,13 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.description,
                       title: 'Profile description',
                       onTap: () => _handleEditDescription(context),
+                    ),
+                    const SizedBox(height: 12),
+                    // Profile Photo
+                    _SettingsItem(
+                      icon: Icons.photo_camera,
+                      title: 'Profile photo',
+                      onTap: () => _handleEditProfilePhoto(context),
                     ),
                     const SizedBox(height: 12),
                     // Log Out
