@@ -73,101 +73,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showExpandedImage(String imageUrl, Map<String, dynamic> post) {
+  void _showExpandedImage(List<Map<String, dynamic>> posts, int initialIndex) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.7),
       builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(20),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Expanded Image
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF1269C7),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              // Three-dot Menu Button (top right)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: PopupMenuButton<String>(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.more_vert,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onSelected: (value) async {
-                    if (value == 'delete') {
-                      Navigator.of(context).pop();
-                      await _deletePost(post);
-                    }
-                  },
-                  itemBuilder: (BuildContext context) => [
-                    PopupMenuItem<String>(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Delete Post',
-                            style: GoogleFonts.hammersmithOne(
-                              color: Colors.red,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        return _ExpandedImageViewer(
+          posts: posts,
+          initialIndex: initialIndex,
+          onDelete: (post) async {
+            Navigator.of(context).pop();
+            await _deletePost(post);
+          },
         );
       },
     );
@@ -315,11 +232,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: posts.take(6).map((post) {
+                  children: posts.take(6).toList().asMap().entries.map((mapEntry) {
+                    final index = mapEntry.key;
+                    final post = mapEntry.value;
                     final imageUrl = post['imageUrl'] as String?;
                     return GestureDetector(
                       onTap: imageUrl != null
-                          ? () => _showExpandedImage(imageUrl, post)
+                          ? () => _showExpandedImage(posts.take(6).toList(), index)
                           : null,
                       child: SizedBox(
                         width: (MediaQuery.of(context).size.width - 44) / 3,
@@ -452,6 +371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(16),
                                         ),
+                                        actionsPadding: const EdgeInsets.only(bottom: 12, right: 16),
                                         title: Text(
                                           'Islands Visited',
                                           style: GoogleFonts.hammersmithOne(
@@ -554,25 +474,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(width: 30),
                                 // Posts Counter
-                                Column(
-                                  children: [
-                                    Text(
-                                      '$_postCount',
-                                      style: GoogleFonts.hammersmithOne(
-                                        color: const Color(0xFF1269C7),
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w400,
+                                GestureDetector(
+                                  onTap: () {
+                                    if (_postsByIsland.isEmpty) return;
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        actionsPadding: const EdgeInsets.only(bottom: 12, right: 16),
+                                        title: Text(
+                                          'Islands Visited',
+                                          style: GoogleFonts.hammersmithOne(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: _postsByIsland.entries.map((entry) {
+                                            // Find most recent post date
+                                            DateTime? mostRecent;
+                                            for (var post in entry.value) {
+                                              final timestamp = post['timestamp'];
+                                              if (timestamp != null) {
+                                                final date = (timestamp as Timestamp).toDate();
+                                                if (mostRecent == null || date.isAfter(mostRecent)) {
+                                                  mostRecent = date;
+                                                }
+                                              }
+                                            }
+                                            final dateStr = mostRecent != null
+                                                ? DateFormat('MMM yyyy').format(mostRecent)
+                                                : '';
+                                            
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(vertical: 6),
+                                              child: Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      entry.key,
+                                                      style: GoogleFonts.hammersmithOne(
+                                                        fontSize: 18,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                                    children: [
+                                                      Text(
+                                                        '${entry.value.length} ${entry.value.length == 1 ? 'post' : 'posts'}',
+                                                        style: GoogleFonts.hammersmithOne(
+                                                          fontSize: 16,
+                                                          color: const Color(0xFF737373),
+                                                        ),
+                                                      ),
+                                                      if (dateStr.isNotEmpty)
+                                                        Text(
+                                                          dateStr,
+                                                          style: GoogleFonts.hammersmithOne(
+                                                            fontSize: 12,
+                                                            color: const Color(0xFF1269C7),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: Text(
+                                              'Close',
+                                              style: GoogleFonts.hammersmithOne(
+                                                color: const Color(0xFF1269C7),
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                    Text(
-                                      'Posts',
-                                      style: GoogleFonts.hammersmithOne(
-                                        color: const Color(0xFF737373),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
+                                    );
+                                  },
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        '$_postCount',
+                                        style: GoogleFonts.hammersmithOne(
+                                          color: const Color(0xFF1269C7),
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w400,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      Text(
+                                        'Posts',
+                                        style: GoogleFonts.hammersmithOne(
+                                          color: const Color(0xFF737373),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -621,6 +631,188 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpandedImageViewer extends StatefulWidget {
+  final List<Map<String, dynamic>> posts;
+  final int initialIndex;
+  final Function(Map<String, dynamic>) onDelete;
+
+  const _ExpandedImageViewer({
+    required this.posts,
+    required this.initialIndex,
+    required this.onDelete,
+  });
+
+  @override
+  State<_ExpandedImageViewer> createState() => _ExpandedImageViewerState();
+}
+
+class _ExpandedImageViewerState extends State<_ExpandedImageViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return '';
+    final date = (timestamp as Timestamp).toDate();
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // PageView for swiping
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: widget.posts.length,
+                    onPageChanged: (index) {
+                      setState(() => _currentIndex = index);
+                    },
+                    itemBuilder: (context, index) {
+                      final post = widget.posts[index];
+                      final imageUrl = post['imageUrl'] as String?;
+                      if (imageUrl == null) return const SizedBox();
+                      
+                      return GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              imageUrl,
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  width: 200,
+                                  height: 200,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFF1269C7),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  // Three-dot Menu Button (top right, inside image)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: PopupMenuButton<String>(
+                      icon: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF1269C7),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.more_vert,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          widget.onDelete(widget.posts[_currentIndex]);
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Delete Post',
+                                style: GoogleFonts.hammersmithOne(
+                                  color: Colors.red,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Island and Date below the image
+            const SizedBox(height: 12),
+            Text(
+              '${widget.posts[_currentIndex]['island'] ?? 'Unknown'}, ${_formatDate(widget.posts[_currentIndex]['timestamp'])}',
+              style: GoogleFonts.hammersmithOne(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+            ),
+            // Page indicator dots
+            if (widget.posts.length > 1) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(widget.posts.length, (index) {
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentIndex
+                          ? const Color(0xFF1269C7)
+                          : Colors.white.withOpacity(0.5),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ],
         ),
       ),
     );

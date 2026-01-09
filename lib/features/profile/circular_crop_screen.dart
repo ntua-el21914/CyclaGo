@@ -139,19 +139,6 @@ class _CircularCropScreenState extends State<CircularCropScreen> {
               ),
             ),
           ),
-          
-          // Instructions
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Text(
-              'Pinch to zoom • Drag to move',
-              style: GoogleFonts.hammersmithOne(
-                color: const Color(0xFF737373),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
 
           // OK Button
           Padding(
