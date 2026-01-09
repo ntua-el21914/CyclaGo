@@ -1,10 +1,9 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../auth/login_screen.dart';
 import 'circular_crop_screen.dart';
@@ -153,29 +152,36 @@ class SettingsScreen extends StatelessWidget {
       try {
         debugPrint('Starting upload... bytes: ${croppedBytes.length}');
         
-        // Upload to Firebase Storage with timeout
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('profile_pictures')
-            .child('${user.uid}.png');
-
-        debugPrint('Uploading to: ${storageRef.fullPath}');
+        // Cloudinary configuration (same as post uploads)
+        const String cloudName = "dkeski4ji";
+        const String uploadPreset = "CyclagoUserImages";
         
-        await storageRef.putData(
-          croppedBytes,
-          SettableMetadata(contentType: 'image/png'),
-        ).timeout(
+        // Upload to Cloudinary
+        final url = Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");
+        final request = http.MultipartRequest('POST', url)
+          ..fields['upload_preset'] = uploadPreset
+          ..files.add(http.MultipartFile.fromBytes(
+            'file',
+            croppedBytes,
+            filename: '${user.uid}_profile.png',
+          ));
+
+        debugPrint('📤 Uploading to Cloudinary...');
+        final response = await request.send().timeout(
           const Duration(seconds: 30),
           onTimeout: () => throw Exception('Upload timed out after 30 seconds'),
         );
 
-        debugPrint('Upload complete, getting URL...');
+        if (response.statusCode != 200) {
+          throw Exception('Upload failed with status ${response.statusCode}');
+        }
 
-        // Get download URL
-        final downloadUrl = await storageRef.getDownloadURL();
-        debugPrint('Got URL: $downloadUrl');
+        final responseData = await response.stream.bytesToString();
+        final jsonResponse = json.decode(responseData);
+        final String uploadedUrl = jsonResponse['secure_url'];
+        debugPrint('Got Cloudinary URL: $uploadedUrl');
 
-        // Update Firestore
+        // Update Firestore with new 'profilepicture' field
         final querySnapshot = await FirebaseFirestore.instance
             .collection('users')
             .where('email', isEqualTo: user.email)
@@ -183,12 +189,12 @@ class SettingsScreen extends StatelessWidget {
 
         if (querySnapshot.docs.isNotEmpty) {
           await querySnapshot.docs.first.reference.update({
-            'profilePictureUrl': downloadUrl,
+            'profilepicture': uploadedUrl,
           });
         } else {
           await FirebaseFirestore.instance.collection('users').add({
             'email': user.email,
-            'profilePictureUrl': downloadUrl,
+            'profilepicture': uploadedUrl,
           });
         }
 

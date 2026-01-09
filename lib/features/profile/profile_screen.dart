@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -40,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _displayName =
                 userData['username'] ?? userData['email'] ?? "Traveller";
             _bio = userData['bio'] ?? "";
-            _profilePictureUrl = userData['profilePictureUrl'];
+            _profilePictureUrl = userData['profilepicture'];
           });
         }
       }
@@ -442,25 +443,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 const SizedBox(width: 30),
                                 // Islands Visited Counter
-                                Column(
-                                  children: [
-                                    Text(
-                                      '${_postsByIsland.length}',
-                                      style: GoogleFonts.hammersmithOne(
-                                        color: const Color(0xFF1269C7),
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w400,
+                                GestureDetector(
+                                  onTap: () {
+                                    if (_postsByIsland.isEmpty) return;
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        title: Text(
+                                          'Islands Visited',
+                                          style: GoogleFonts.hammersmithOne(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: _postsByIsland.entries.map((entry) {
+                                            // Find most recent post date
+                                            DateTime? mostRecent;
+                                            for (var post in entry.value) {
+                                              final timestamp = post['timestamp'];
+                                              if (timestamp != null) {
+                                                final date = (timestamp as Timestamp).toDate();
+                                                if (mostRecent == null || date.isAfter(mostRecent)) {
+                                                  mostRecent = date;
+                                                }
+                                              }
+                                            }
+                                            final dateStr = mostRecent != null
+                                                ? DateFormat('MMM yyyy').format(mostRecent)
+                                                : '';
+                                            
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(vertical: 6),
+                                              child: Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      entry.key,
+                                                      style: GoogleFonts.hammersmithOne(
+                                                        fontSize: 18,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                                    children: [
+                                                      Text(
+                                                        '${entry.value.length} ${entry.value.length == 1 ? 'post' : 'posts'}',
+                                                        style: GoogleFonts.hammersmithOne(
+                                                          fontSize: 16,
+                                                          color: const Color(0xFF737373),
+                                                        ),
+                                                      ),
+                                                      if (dateStr.isNotEmpty)
+                                                        Text(
+                                                          dateStr,
+                                                          style: GoogleFonts.hammersmithOne(
+                                                            fontSize: 12,
+                                                            color: const Color(0xFF1269C7),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: Text(
+                                              'Close',
+                                              style: GoogleFonts.hammersmithOne(
+                                                color: const Color(0xFF1269C7),
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                    Text(
-                                      'Islands',
-                                      style: GoogleFonts.hammersmithOne(
-                                        color: const Color(0xFF737373),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
+                                    );
+                                  },
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        '${_postsByIsland.length}',
+                                        style: GoogleFonts.hammersmithOne(
+                                          color: const Color(0xFF1269C7),
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w400,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      Text(
+                                        'Islands',
+                                        style: GoogleFonts.hammersmithOne(
+                                          color: const Color(0xFF737373),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(width: 30),
                                 // Posts Counter
