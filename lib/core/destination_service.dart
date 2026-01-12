@@ -101,7 +101,7 @@ static const Map<String, String> _islandImages = {
   'ano koufonissi': 'https://commons.wikimedia.org/wiki/Special:FilePath/Koufonisi_Pori.jpg',
   'kounoupas': 'https://commons.wikimedia.org/wiki/Special:FilePath/Dodekanese%2CKounoupas1.jpg', // Note: Tiny islet off Astypalaia
   'delos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Terrace_of_the_Lions_Delos_130058.jpg',
-  'rhenia': 'https://commons.wikimedia.org/wiki/Special:FilePath/Rinia_south_coast_bight_beach.jpg',
+  'rhenia': 'https://www.greeka.com/photos/tours/312/slides/south-coast-all-inclusive-480.jpg',
 };
 
   // Island centers for location validation

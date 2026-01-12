@@ -3,9 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-// Σιγουρέψου ότι αυτό το import είναι σωστό για το Project σου
 import '../../main.dart';
-import '../../core/destination_service.dart'; 
+import '../../core/destination_service.dart';
+import '../../core/global_data.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,54 +15,73 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-   String _displayName = "";
+  String _displayName = "";
   List<String> _selectedIslands = [];
   late PageController _pageController;
   double _currentPage = 0.0;
+  String _currentIslandName = "Naxos";
+
+  late Stream<QuerySnapshot> _eventsStream;
+  late Stream<QuerySnapshot> _challengesStream;
+  // New stream to track the unlock status live
+  late Stream<QuerySnapshot> _unlockStatusStream;
 
   @override
   void initState() {
     super.initState();
-    _fetchUserName();
-    _selectRandomIslands();
-    Future.microtask(() => _getCurrentIsland());
     _pageController = PageController(viewportFraction: 1.0);
     _pageController.addListener(_onPageChanged);
-  }
-
-  // --- 1. ΛΟΓΙΚΗ ΓΙΑ ΤΟ ΟΝΟΜΑ ΧΡΗΣΤΗ ---
-  Future<void> _fetchUserName() async {
+    
+    _eventsStream = FirebaseFirestore.instance.collection('events').snapshots();
+    _challengesStream = FirebaseFirestore.instance.collection('challenges').snapshots();
+    
+    // --- 24h UNLOCK CHECK ---
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      // Ψάχνουμε τον χρήστη με βάση το email του
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: user.email)
-          .get();
+    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+    
+    _unlockStatusStream = FirebaseFirestore.instance
+        .collection('posts')
+        .where('userId', isEqualTo: user?.uid)
+        .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
+        .snapshots();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        final userData = querySnapshot.docs.first.data();
-        if (mounted) {
-          setState(() {
-            // Δείξε το firstName, αλλιώς το username
-            _displayName = userData['username'] ?? userData['email'] ?? '';
-          }
-          );
-        }
+    _fetchUserName();
+    _selectRandomIslands();
+    _initLocationAndSort();
+  }
+
+  Future<void> _initLocationAndSort() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high
+      );
+      String? island = DestinationService.findNearestIsland(
+        position.latitude, 
+        position.longitude
+      );
+      
+      if (island != null && mounted) {
+        _selectRandomIslands(currentIsland: island);
       }
+    } catch (e) {
+      debugPrint("Location sort failed: $e");
     }
   }
 
-  // --- SELECT RANDOM ISLANDS ---
   void _selectRandomIslands({String? currentIsland}) {
-    final allIslands = List<String>.from(DestinationService.islands);
+    List<String> allIslands = List<String>.from(DestinationService.islands);
     allIslands.shuffle();
-    if (currentIsland != null && allIslands.contains(currentIsland)) {
-      allIslands.remove(currentIsland);
+
+    if (currentIsland != null) {
+      allIslands.removeWhere((island) => 
+        island.toLowerCase() == currentIsland.toLowerCase());
       allIslands.insert(0, currentIsland);
+      _currentIslandName = currentIsland;
     }
-    _selectedIslands = allIslands.take(4).toList();
+
+    setState(() {
+      _selectedIslands = allIslands.take(4).toList();
+    });
   }
 
   Future<void> _getCurrentIsland() async {
@@ -71,17 +90,26 @@ class _HomeScreenState extends State<HomeScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
+
       if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-        String? currentIsland = DestinationService.findNearestIsland(position.latitude, position.longitude);
-        if (currentIsland != null && mounted) {
-          setState(() {
-            _selectRandomIslands(currentIsland: currentIsland);
-          });
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high
+        );
+
+        String? island = DestinationService.findNearestIsland(
+          position.latitude, 
+          position.longitude
+        );
+
+        if (island != null && mounted) {
+          _selectRandomIslands(currentIsland: island);
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(0);
+          }
         }
       }
     } catch (e) {
-      // If location fails, keep random selection
+      print("Location error: $e");
     }
   }
 
@@ -91,343 +119,235 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
+  Future<void> _fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _displayName = doc.data()?['username'] ?? 'Cyclist';
+        });
+      }
+    }
+  }
+
+  void _shareEventToChat(String title, String subtitle, bool isUnlocked) async {
+    if (!isUnlocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text("Island Pass Locked! Post a photo to share."),
+        ),
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance
+        .collection('destinations')
+        .doc(_currentIslandName.toLowerCase())
+        .collection('messages')
+        .add({
+      'text': "📢 Event: $title ($subtitle)",
+      'senderId': user.uid,
+      'senderName': _displayName,
+      'timestamp': FieldValue.serverTimestamp(),
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(backgroundColor: const Color(0xFF1269C7), content: Text("Shared to $_currentIslandName Chat!")),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
-    const Color backgroundColor = Color(0xFFF6F9FC);
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      extendBody: true, // Allow body to extend behind nav bar
-      
-      // --- NAVIGATION BAR ---
-      bottomNavigationBar: CustomNavBar(
-        selectedIndex: _selectedIndex,
-        onTap: _onItemTapped,
-      ),
+    return StreamBuilder<QuerySnapshot>(
+      stream: _unlockStatusStream,
+      builder: (context, unlockSnapshot) {
+        // Unlock if Firestore has a post from last 24h OR if user just posted locally
+        bool isUnlocked = (unlockSnapshot.hasData && unlockSnapshot.data!.docs.isNotEmpty) || 
+                          GlobalFeedData.posts.isNotEmpty;
 
-      body: SafeArea(
-        bottom: false,
-        child: ShaderMask(
-          shaderCallback: (Rect bounds) {
-            return LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.white, Colors.white, Colors.transparent, Colors.transparent],
-              stops: [0.0, 0.95, 0.95, 1.0], // Sharp cutoff at 90%
-            ).createShader(bounds);
-          },
-          blendMode: BlendMode.dstIn,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 140),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- HEADER (Hello User) ---
-              RichText(
-                text: TextSpan(
-                  style: GoogleFonts.hammersmithOne(fontSize: 24, color: Colors.black),
-                  children: [
-                    const TextSpan(text: 'Hello,\n'),
-                    TextSpan(
-                      text: _displayName, // Δυναμικό όνομα
-                      style: GoogleFonts.hammersmithOne(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w400,
-                      ),
+        return Scaffold(
+          backgroundColor: const Color(0xFFF6F9FC),
+          body: SafeArea(
+            bottom: false,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 130),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: GoogleFonts.hammersmithOne(fontSize: 24, color: Colors.black),
+                      children: [
+                        const TextSpan(text: 'Hello,\n'),
+                        TextSpan(text: _displayName, style: const TextStyle(fontSize: 32)),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  SizedBox(
+                    height: 330,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _selectedIslands.length,
+                      itemBuilder: (context, index) => _buildIslandCard(_selectedIslands[index], primaryBlue),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildPageIndicator(primaryBlue),
+                  const SizedBox(height: 30),
+
+                  _buildFirebaseSection("Events", _eventsStream, primaryBlue, true, isUnlocked),
+                  const SizedBox(height: 30),
+                  _buildFirebaseSection("Challenges", _challengesStream, primaryBlue, false, isUnlocked),
+                ],
               ),
+            ),
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildFirebaseSection(String title, Stream<QuerySnapshot> stream, Color blue, bool isEvent, bool isPassUnlocked) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: blue, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GoogleFonts.hammersmithOne(color: blue, fontSize: 28, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 15),
+          StreamBuilder<QuerySnapshot>(
+            stream: stream,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
               
-              const SizedBox(height: 20),
+              return Column(
+                children: snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  // Apply lock only if it is an event and the pass is not unlocked
+                  bool isItemLocked = !isPassUnlocked && isEvent;
 
-              // --- ISLAND IMAGES SCROLLABLE ---
-              SizedBox(
-                height: 330,
-                child: PageView(
-                  controller: _pageController,
-                  scrollDirection: Axis.horizontal,
-                  children: List.generate(4, (index) {
-                    final island = _selectedIslands[index];
-                    final imageUrl = DestinationService.islandImages[island.toLowerCase()] ?? '';
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: Colors.white,
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x3F000000),
-                            blurRadius: 4,
-                            offset: Offset(0, 4),
-                          )
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            if (imageUrl.isNotEmpty)
-                              Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    color: Colors.grey[200],
-                                    child: const Center(child: CircularProgressIndicator()),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[200],
-                                    child: const Center(child: Icon(Icons.error)),
-                                  );
-                                },
-                              )
-                            else
-                              Container(
-                                color: Colors.grey[200],
-                                child: const Center(child: Icon(Icons.image_not_supported)),
-                              ),
-                            Positioned(
-                              top: 20,
-                              left: 20,
-                              child: Text(
-                                island,
-                                style: GoogleFonts.hammersmithOne(
-                                  color: primaryBlue,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  shadows: [
-                                    const Shadow(
-                                      offset: Offset(0, 2),
-                                      blurRadius: 6.0,
-                                      color: Colors.black54,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Page Indicator
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (index) {
-                  return Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: index == _currentPage.round() ? primaryBlue : Colors.grey.withOpacity(0.5),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _InfoCard(
+                      title: data['title'] ?? '',
+                      subtitle: data['subtitle'] ?? '',
+                      icon: _getIconData(data['icon'] ?? ''),
+                      isLocked: isItemLocked,
+                      onLongPress: isEvent ? () => _shareEventToChat(data['title'], data['subtitle'], isPassUnlocked) : null,
                     ),
                   );
-                }),
-              ),
-
-              const SizedBox(height: 30),
-
-              // --- EVENTS SECTION WRAPPED IN BOX ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0), // Εσωτερικό κενό
-                decoration: BoxDecoration(
-                  color: Colors.white, // Λευκό φόντο
-                  borderRadius: BorderRadius.circular(20), // Στρογγυλεμένες γωνίες
-                  border: Border.all(
-                    color: primaryBlue, // Το μπλε περίγραμμα
-                    width: 2, // Πάχος περιγράμματος
-                  ),
-                  // Προαιρετικά: Λίγη σκιά για να ξεχωρίζει
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Τίτλος Events (Μέσα στο κουτί πλέον)
-                    Text(
-                      'Events',
-                      style: GoogleFonts.hammersmithOne(
-                        color: primaryBlue,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    
-                    // Οι κάρτες
-                    const _InfoCard(
-                      title: "Beach Sunset Party",
-                      subtitle: "Today • Agios Prokopios",
-                      icon: Icons.beach_access,
-                    ),
-                    const SizedBox(height: 10),
-                    const _InfoCard(
-                      title: "Panigyri",
-                      subtitle: "Tomorrow • Chora",
-                      icon: Icons.music_note,
-                    ),
-                    const SizedBox(height: 10),
-                    const _InfoCard(
-                      title: "Diving Competition",
-                      subtitle: "Friday • Agios Prokopios",
-                      icon: Icons.scuba_diving,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // --- CHALLENGES SECTION WRAPPED IN BOX ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: primaryBlue,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Challenges',
-                      style: GoogleFonts.hammersmithOne(
-                        color: primaryBlue,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    const _InfoCard(
-                      title: "Visit 5 Beaches",
-                      subtitle: "Progress: 2/5",
-                      icon: Icons.flag,
-                    ),
-                    const SizedBox(height: 10),
-                    const _InfoCard(
-                      title: "Photo Collection Master",
-                      subtitle: "Progress: 12/20",
-                      icon: Icons.camera_enhance,
-                    ),
-                    const SizedBox(height: 10),
-                    const _InfoCard(
-                      title: "Taste Local Cuisine",
-                      subtitle: "Progress: 1/10",
-                      icon: Icons.restaurant,
-                    ),
-                  ],
-                ),
-              ),
-
-              // Extra space at bottom so the Floating Nav Bar doesn't cover the last item
-              
-            ],
+                }).toList(),
+              );
+            },
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIslandCard(String name, Color blue) {
+    final imageUrl = DestinationService.islandImages[name.toLowerCase()] ?? '';
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 5),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), color: Colors.grey[200]),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageUrl.isNotEmpty) Image.network(imageUrl, fit: BoxFit.cover),
+            Container(color: Colors.black.withOpacity(0.1)),
+            Positioned(
+              top: 20, left: 20,
+              child: Text(name, style: GoogleFonts.hammersmithOne(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       ),
-      )
     );
+  }
+
+  Widget _buildPageIndicator(Color blue) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(_selectedIslands.length, (index) => Container(
+        width: 8, height: 8, margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle, 
+          color: index == _currentPage.round() ? blue : Colors.grey.withOpacity(0.3)
+        ),
+      )),
+    );
+  }
+
+  IconData _getIconData(String name) {
+    switch (name) {
+      case 'beach': return Icons.beach_access;
+      case 'music': return Icons.music_note;
+      case 'scuba': return Icons.scuba_diving;
+      case 'flag': return Icons.flag;
+      case 'camera': return Icons.camera_enhance;
+      case 'restaurant': return Icons.restaurant;
+      default: return Icons.star_border;
+    }
   }
 }
 
-// --- REUSABLE CARD WIDGET---
 class _InfoCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final bool isLocked;
+  final VoidCallback? onLongPress;
 
-  const _InfoCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
+  const _InfoCard({required this.title, required this.subtitle, required this.icon, required this.isLocked, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
+    Color contentColor = isLocked ? Colors.grey : primaryBlue;
 
-    return Container(
-      width: double.infinity,
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        // CHANGES HERE:
-        // 1. Smoother edges: Increased radius from 20 to 30.
-        borderRadius: BorderRadius.circular(30),
-        // Keep the exact same border.
-        border: Border.all(color: primaryBlue, width: 1),
-        // 2. Lighter shadow: Much lower opacity black, higher blur radius.
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.07), // Very light shadow color
-            blurRadius: 10, // Soft blur
-            offset: const Offset(0, 4), // Slight downward shift
-          )
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.hammersmithOne(
-              color: primaryBlue,
-              fontSize: 15,
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: Container(
+        width: double.infinity,
+        height: 55,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: contentColor, width: 1.5),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(title, style: GoogleFonts.hammersmithOne(color: contentColor, fontSize: 16), overflow: TextOverflow.ellipsis)),
+            Row(
+              children: [
+                Text(subtitle, style: GoogleFonts.hammersmithOne(color: contentColor, fontSize: 13)),
+                const SizedBox(width: 10),
+                Icon(isLocked ? Icons.lock_outline : icon, size: 18, color: contentColor),
+              ],
             ),
-          ),
-          Row(
-            children: [
-              Text(
-                subtitle,
-                textAlign: TextAlign.right,
-                style: GoogleFonts.hammersmithOne(
-                  color: primaryBlue,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(icon, size: 14, color: primaryBlue),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
