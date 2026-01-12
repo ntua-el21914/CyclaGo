@@ -464,8 +464,8 @@ class SettingsScreen extends StatelessWidget {
                       'Settings',
                       style: GoogleFonts.hammersmithOne(
                         color: Colors.black,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w400,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),

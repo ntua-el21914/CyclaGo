@@ -81,7 +81,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: primaryBlue),
           onPressed: () => Navigator.pop(context),
         ),
         bottom: PreferredSize(

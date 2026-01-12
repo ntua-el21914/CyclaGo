@@ -685,25 +685,23 @@ class _ExpandedImageViewerState extends State<_ExpandedImageViewer> {
         child: Column(
           children: [
             Expanded(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // PageView for swiping
-                  PageView.builder(
-                    controller: _pageController,
-                    itemCount: widget.posts.length,
-                    onPageChanged: (index) {
-                      setState(() => _currentIndex = index);
-                    },
-                    itemBuilder: (context, index) {
-                      final post = widget.posts[index];
-                      final imageUrl = post['imageUrl'] as String?;
-                      if (imageUrl == null) return const SizedBox();
-                      
-                      return GestureDetector(
-                        onTap: () => Navigator.of(context).pop(),
-                        child: Center(
-                          child: ClipRRect(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.posts.length,
+                onPageChanged: (index) {
+                  setState(() => _currentIndex = index);
+                },
+                itemBuilder: (context, index) {
+                  final post = widget.posts[index];
+                  final imageUrl = post['imageUrl'] as String?;
+                  if (imageUrl == null) return const SizedBox();
+                  
+                  return GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Center(
+                      child: Stack(
+                        children: [
+                          ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.network(
                               imageUrl,
@@ -726,61 +724,65 @@ class _ExpandedImageViewerState extends State<_ExpandedImageViewer> {
                               },
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                  // Three-dot Menu Button (top right, inside image)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: PopupMenuButton<String>(
-                      icon: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1269C7),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.more_vert,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      onSelected: (value) {
-                        if (value == 'delete') {
-                          widget.onDelete(widget.posts[_currentIndex]);
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => [
-                        PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Delete Post',
-                                style: GoogleFonts.hammersmithOne(
-                                  color: Colors.red,
-                                  fontSize: 16,
+                          // Three-dot Menu Button (top right, attached to image)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () {}, // Prevent tap from closing dialog
+                              child: PopupMenuButton<String>(
+                                padding: EdgeInsets.zero,
+                                icon: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF1269C7),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.more_vert,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
                                 ),
+                                color: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                onSelected: (value) {
+                                  if (value == 'delete') {
+                                    widget.onDelete(widget.posts[_currentIndex]);
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) => [
+                                  PopupMenuItem<String>(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Delete Post',
+                                          style: GoogleFonts.hammersmithOne(
+                                            color: Colors.red,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
             // Island and Date below the image
