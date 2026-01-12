@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cyclago/core/destination_service.dart';
 
 class GroupChatScreen extends StatefulWidget {
-  final String islandName; // e.g. "Naxos"
+  final String islandName;
 
   const GroupChatScreen({super.key, required this.islandName});
 
@@ -17,7 +17,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final String _currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-  String _currentUsername = 'Cyclist'; // Default until loaded
+  String _currentUsername = 'Cyclist'; 
 
   @override
   void initState() {
@@ -25,7 +25,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _fetchUsername();
   }
 
-  // Get the real username to send with the message
   Future<void> _fetchUsername() async {
     if (_currentUserId.isEmpty) return;
     try {
@@ -40,26 +39,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
-  // --- SEND MESSAGE LOGIC (Your Logic) ---
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
 
     final String messageText = _messageController.text.trim();
     _messageController.clear(); 
 
-    // Add to Firebase: destinations -> [island] -> messages
     await FirebaseFirestore.instance
         .collection('destinations')
-        .doc(widget.islandName.toLowerCase()) // e.g. 'naxos'
+        .doc(widget.islandName.toLowerCase())
         .collection('messages')
         .add({
       'text': messageText,
       'senderId': _currentUserId,
-      'senderName': _currentUsername, // Use real name
+      'senderName': _currentUsername,
       'timestamp': FieldValue.serverTimestamp(),
     });
 
-    // Scroll to bottom
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         0.0,
@@ -71,131 +67,147 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF1269C7);
+    const Color primaryBlue = Color(0xFF1269C7); // Your specific light blue
 
     return Scaffold(
-      backgroundColor: Colors.white, // Match App Background
-      
-      // --- HEADER ---
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primaryBlue),
-          onPressed: () => Navigator.pop(context),
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: primaryBlue, height: 1.5),
-        ),
-        title: Row(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
           children: [
+            // --- HEADER ---
             Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                image: DecorationImage(
-                  image: NetworkImage(DestinationService.getIslandImage(widget.islandName)),
-                  fit: BoxFit.cover,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  bottom: BorderSide(width: 1.5, color: primaryBlue),
                 ),
               ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    left: 10,
+                    child: IconButton(
+                      // --- UPDATED COLOUR HERE ---
+                      icon: const Icon(Icons.arrow_back, color: primaryBlue), 
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 35,
+                        height: 35,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: DecorationImage(
+                            image: NetworkImage(DestinationService.getIslandImage(widget.islandName)),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        "${widget.islandName} Chat",
+                        style: GoogleFonts.hammersmithOne(
+                          color: Colors.black, 
+                          fontSize: 24, 
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              "${widget.islandName} Chat",
-              style: GoogleFonts.hammersmithOne(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+            
+            // --- MESSAGES LIST ---
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('destinations')
+                    .doc(widget.islandName.toLowerCase())
+                    .collection('messages')
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator(color: primaryBlue));
+                  }
+
+                  final messages = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    reverse: true,
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = messages[index].data() as Map<String, dynamic>;
+                      final bool isMe = msg['senderId'] == _currentUserId;
+
+                      return _buildMessageBubble(
+                        msg['text'] ?? '',
+                        isMe,
+                        msg['senderName'] ?? 'Cyclist',
+                        primaryBlue,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+
+            // --- INPUT BOX ---
+            Container(
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Colors.grey[200]!)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      style: GoogleFonts.hammersmithOne(color: Colors.black),
+                      decoration: InputDecoration(
+                        hintText: "Type a message...",
+                        hintStyle: GoogleFonts.hammersmithOne(color: Colors.grey),
+                        filled: true,
+                        fillColor: const Color(0xFFF0F2F5),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: _sendMessage,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: primaryBlue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      
-      body: Column(
-        children: [
-          // --- MESSAGES LIST (LIVE) ---
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('destinations')
-                  .doc(widget.islandName.toLowerCase())
-                  .collection('messages')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator(color: primaryBlue));
-                }
-
-                final messages = snapshot.data!.docs;
-
-                return ListView.builder(
-                  reverse: true, // Start from bottom
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = messages[index].data() as Map<String, dynamic>;
-                    final bool isMe = msg['senderId'] == _currentUserId;
-
-                    return _buildMessageBubble(
-                      msg['text'] ?? '',
-                      isMe,
-                      msg['senderName'] ?? 'Cyclist',
-                      primaryBlue,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-
-          // --- INPUT FIELD ---
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey[200]!)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: GoogleFonts.hammersmithOne(color: Colors.black),
-                    decoration: InputDecoration(
-                      hintText: "Type a message...",
-                      hintStyle: GoogleFonts.hammersmithOne(color: Colors.grey),
-                      filled: true,
-                      fillColor: const Color(0xFFF0F2F5),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: _sendMessage,
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: primaryBlue,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  // --- MESSAGE BUBBLE STYLING ---
   Widget _buildMessageBubble(String text, bool isMe, String senderName, Color primaryBlue) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -204,7 +216,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
-          color: isMe ? primaryBlue : const Color(0xFFF0F2F5), // Blue for me, Grey for others
+          color: isMe ? primaryBlue : const Color(0xFFF0F2F5), 
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),
