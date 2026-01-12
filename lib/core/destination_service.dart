@@ -63,41 +63,46 @@ class DestinationService {
     'Donoussa',
     'Kounoupas',
     'Heraklia',
-    'K Koufonissi',
-    'P Koufonissi',
+    'Kato Koufonissi',
+    'Ano Koufonissi',
     'Antiparos',
     'Delos',
     'Rhenia',
   ];
 
   // Island images for dynamic display
-  static const Map<String, String> _islandImages = {
-    'naxos': 'https://images.greeka.com/resized/user_images/marketka84/1920/php2CPhPN.jpg',
-    'paros': 'https://www.aegeanislands.gr/app/uploads/2020/06/shutterstock_367041155-1.jpg',
-    'mykonos': 'https://images.greeka.com/resized/user_images/dannyb/580/phphdV9bR.jpg',
-    'santorini': 'https://www.greeka.com/village_beach/photos/135/oia-top-1-1280.jpg',
-    'ios': 'https://images.greeka.com/resized/user_images/dannyb/580/phpi8bES0.jpg',
-    'syros': 'https://www.greeka.com/photos/cyclades/syros/greeka_galleries/54-480.jpg',
-    'tinos': 'https://pixabay.com/get/g26c6496b34f9702dd73ff0c42bf66aeddda83e2f679e697e6dd3bc0079041557ec4a00e053452f74b782745f7ba22d57_1920.jpg',
-    'andros': 'https://pixabay.com/get/g84b11516b4921a37e90cd908afde3e5e1bf315e4545b6ff792020cf4fbd33c277b9dc8e8c982f547f0823440e921289c_1920.jpg',
-    'kea': 'https://pixabay.com/get/g939fa618676370a77cf78e8243a27e66a09aa290f54174e7b950ae0c7487a6bc5dfb2f6886b06844c902c868757a6b3a_1920.jpg',
-    'kythnos': 'https://pixabay.com/get/g4798b7b8feed01683382b335305f1576a10010b5accf3d38ab4e4b4146c9c7d53f44badc95e4d7c6e65973d12f31fd50_1920.jpg',
-    'serifos': 'https://pixabay.com/get/gcc0566d7ead7e04383242e895a357b7f176f0f1c3f89605627fec7b81fbcbbf046edacef7a39b0277ebb59fef748caa2_1920.jpg',
-    'sifnos': 'https://pixabay.com/get/g652b04d19dfe8dcc7edf15cf35e9f1d3501b7192af12196ef822716b7928af2e1c799bba28b02681927298a242b3c4f2_1920.jpg',
-    'folégandros': 'https://pixabay.com/get/gda6aac7558017a998b026988a744ed34965e9812e2672705edce2bad65511198ccf4c4ce4404ad58522da4cfb7658d82_1920.png',
-    'sikinos': 'https://pixabay.com/get/g57bd65ec225b30492686b49b1eb6c50bd9024bc987cb039b7d9b10b021fc029bc868f5221369f23b88c40b9b25f4ba22_1920.jpg',
-    'amorgos': 'https://pixabay.com/get/g292ca4f5cca7190b3e07ac1752e3002090e84aa98177309df3220b10898f4021d9cd46f9a0522deacd519b45aaeac00d_1920.jpg',
-    'anafi': 'https://pixabay.com/get/g64e6235ed9d0b669d5917ddf265751073d791eec2a737f00f4b69e8103db569574df1e3cba4d2168d43435e8e9bca9f0_1920.jpg',
-    'schinoussa': 'https://pixabay.com/get/gade7201bb4718bd0c43b6c16510dcbd860e14a562779e34b359d1bfc0ab670629e0cc6648e09fbe35aedfe3152803f5c_1920.jpg',
-    'donoussa': 'https://pixabay.com/get/gb6e76bae368d38ed6351ef784149f0118068700110284e6da0c69b5b3437706d548b87de8f9b3958f365b16d2c0c9431_1920.jpg',
-    'kounoupas': 'https://pixabay.com/get/g26bb619e90f64db48bbfaa21970b4873a842e2cc8cf7a7d3af7b73ddab06ae71bd6f1a1b926d0f7116b5b702ef79679f_1920.jpg',
-    'heraklia': 'https://pixabay.com/get/g262d80c55ffd1aca34bd63ef18c3f6a062339328f4febbf26c44b6fb1973d4d0f524ada2245ac7266b92ff9e136e44c9_1920.jpg',
-    'kato koufonissi': 'https://pixabay.com/get/g961bc9daa3e2939fca8c07b50282a19ec5724f1f6dc5022eb096d9620bb08c10797b609d485342f2d1ea80cab3eeea57_1920.jpg',
-    'ano koufonissi': 'https://pixabay.com/get/g0ba89cc99c550796bccf3e77cb70e05d42c91e139384f932c33430feb650c7b6ccd9cce3f6ebf5fb3349cf76f9164bd8_1920.jpg',
-    'antiparos': 'https://pixabay.com/get/g9813842c61b187e9ac0875afa5cd7d0e19d23cdc5f8b096aa8836e69b423820344e667d91ed9cba39c9e19dd6c90cb56_1920.jpg',
-    'delos': 'https://pixabay.com/get/g07f234c939bec8e6cd4fd5cd11759623b8f0ba3b39d1cc5e4c87d52f780d7a065a3224aef3bc2180141a4fde7a71cfaf_1920.jpg',
-    'rhenia': 'https://pixabay.com/get/g7101a58ce594a4722f543ee1b8c60cb6a58e6e39c7bcb9bac5df89838fd2f21813f31e3cbb09d0dbe15cd21602a0c3c8_1920.jpg',
-  };
+static const Map<String, String> _islandImages = {
+  // --- Major Islands (Unsplash - High Quality, Royalty Free) ---
+  'naxos': 'https://images.greeka.com/resized/user_images/marketka84/1920/php2CPhPN.jpg',
+  'paros': 'https://www.aegeanislands.gr/app/uploads/2020/06/shutterstock_367041155-1.jpg',
+  'mykonos': 'https://images.greeka.com/resized/user_images/dannyb/580/phphdV9bR.jpg',
+  'santorini': 'https://www.greeka.com/village_beach/photos/135/oia-top-1-1280.jpg',
+  'ios': 'https://www.aegeanislands.gr/app/uploads/2020/06/shutterstock_346259042-1-1618x1080.jpg', 
+  
+  // --- Medium Islands (Wikimedia Commons - Stable File Paths) ---
+  'syros': 'https://commons.wikimedia.org/wiki/Special:FilePath/Ermoupoli,_Syros_island,_Greece.jpg',
+  'tinos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Saint_Sostis_church_in_Tinos_island,_Greece.jpg',
+  'andros': 'https://commons.wikimedia.org/wiki/Special:FilePath/Chora_Andros_from_Archaeological_Museum,_090592.jpg',
+  'kea': 'https://commons.wikimedia.org/wiki/Special:FilePath/Ioulis_at_Kea_(Tzia)_Island_-_panoramio_(1).jpg',
+  'kythnos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Kolona_beach,_Kythnos_2018_n2.jpg',
+  'serifos': 'https://commons.wikimedia.org/wiki/Special:FilePath/%CE%A7%CF%8E%CF%81%CE%B1_%CE%A3%CE%B5%CF%81%CE%AF%CF%86%CE%BF%CF%85_9771.jpg', // Encoded filename
+  'sifnos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Church_of_the_Seven_Martyrs_01.jpg',
+  'folégandros': 'https://commons.wikimedia.org/wiki/Special:FilePath/Chora_of_Folegandros,_076078.jpg',
+  'sikinos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Moni_Zoodochos_Pigi,_Sikinos,_247994.jpg',
+  'amorgos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Hozoviotissa_Monastery.jpg',
+  'anafi': 'https://commons.wikimedia.org/wiki/Special:FilePath/Kalamos_from_Chora,_Anafi,_176420.jpg',
+  'antiparos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Antiparos_Beach.jpg',
+
+  // --- Small / Obscure Islands (Specific verified Commons files) ---
+  'schinoussa': 'https://commons.wikimedia.org/wiki/Special:FilePath/Schinoussa_Mersini_060565.jpg',
+  'donoussa': 'https://commons.wikimedia.org/wiki/Special:FilePath/Donoussa,_085174.jpg',
+  'heraklia': 'https://commons.wikimedia.org/wiki/Special:FilePath/The_small_port_of_Irakleia_island_(Cyclades).jpg',
+  'kato koufonissi': 'https://commons.wikimedia.org/wiki/Special:FilePath/Kato_Koufonisi_beach,_190073.jpg',
+  'ano koufonissi': 'https://commons.wikimedia.org/wiki/Special:FilePath/Koufonisi_Pori.jpg',
+  'kounoupas': 'https://commons.wikimedia.org/wiki/Special:FilePath/Dodekanese%2CKounoupas1.jpg', // Note: Tiny islet off Astypalaia
+  'delos': 'https://commons.wikimedia.org/wiki/Special:FilePath/Terrace_of_the_Lions_Delos_130058.jpg',
+  'rhenia': 'https://commons.wikimedia.org/wiki/Special:FilePath/Rinia_south_coast_bight_beach.jpg',
+};
 
   // Island centers for location validation
   static const Map<String, LatLng> _islandCenters = {
