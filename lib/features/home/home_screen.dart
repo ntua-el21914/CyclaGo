@@ -367,7 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- REUSABLE CARD WIDGET ---
+// --- REUSABLE CARD WIDGET---
 class _InfoCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -389,13 +389,17 @@ class _InfoCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        // CHANGES HERE:
+        // 1. Smoother edges: Increased radius from 20 to 30.
+        borderRadius: BorderRadius.circular(30),
+        // Keep the exact same border.
         border: Border.all(color: primaryBlue, width: 1),
-        boxShadow: const [
+        // 2. Lighter shadow: Much lower opacity black, higher blur radius.
+        boxShadow: [
           BoxShadow(
-            color: Color(0x3F000000),
-            blurRadius: 4,
-            offset: Offset(0, 4),
+            color: Colors.black.withOpacity(0.07), // Very light shadow color
+            blurRadius: 10, // Soft blur
+            offset: const Offset(0, 4), // Slight downward shift
           )
         ],
       ),
@@ -416,7 +420,7 @@ class _InfoCard extends StatelessWidget {
                 textAlign: TextAlign.right,
                 style: GoogleFonts.hammersmithOne(
                   color: primaryBlue,
-                  fontSize: 12, 
+                  fontSize: 12,
                 ),
               ),
               const SizedBox(width: 8),
