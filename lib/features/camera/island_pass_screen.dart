@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:cyclago/features/camera/camera_screen.dart';
 import 'package:cyclago/features/social/group_chat_screen.dart';
+import 'package:cyclago/features/profile/profile_screen.dart';
 import 'package:cyclago/core/global_data.dart';
 import 'package:cyclago/core/destination_service.dart';
 
@@ -59,6 +61,19 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     } catch (e) {
       print("Error resolving username: $e");
     }
+  }
+
+  void _showExpandedImage(List<Map<String, dynamic>> posts, int initialIndex) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.85),
+      builder: (BuildContext context) {
+        return _IslandPassImageViewer(
+          posts: posts,
+          initialIndex: initialIndex,
+        );
+      },
+    );
   }
 
   @override
@@ -345,9 +360,15 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
             final String imageUrl = data['imageUrl'] ?? '';
             // Use username from post, but default to 'Cyclist' only if missing
             final String username = data['username'] ?? 'Cyclist';
+            final String? userId = data['userId'];
 
-            return Container(
-              decoration: BoxDecoration(
+            // Prepare posts list for expanded viewer
+            final postsList = docs.map((d) => d.data() as Map<String, dynamic>).toList();
+
+            return GestureDetector(
+              onTap: () => _showExpandedImage(postsList, index),
+              child: Container(
+                decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 color: Colors.black,
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5)],
@@ -376,15 +397,32 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                     ),
                     Positioned(
                       bottom: 12, left: 12,
-                      child: Text(
-                        "@$username",
-                        style: GoogleFonts.hammersmithOne(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      child: GestureDetector(
+                        onTap: userId != null ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileScreen(userId: userId),
+                            ),
+                          );
+                        } : null,
+                        child: Text(
+                          "@$username",
+                          style: GoogleFonts.hammersmithOne(
+                            color: Colors.white, 
+                            fontSize: 14, 
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.white.withOpacity(0.5),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            );
+            ),
+          );
           },
         );
       },
@@ -403,6 +441,157 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
         child: Text(
           'Island Pass',
           style: GoogleFonts.hammersmithOne(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
+// Image viewer for expanded post images in Island Pass
+class _IslandPassImageViewer extends StatefulWidget {
+  final List<Map<String, dynamic>> posts;
+  final int initialIndex;
+
+  const _IslandPassImageViewer({
+    required this.posts,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_IslandPassImageViewer> createState() => _IslandPassImageViewerState();
+}
+
+class _IslandPassImageViewerState extends State<_IslandPassImageViewer> {
+  late PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return '';
+    final date = (timestamp as Timestamp).toDate();
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.7,
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.posts.length,
+                onPageChanged: (index) {
+                  setState(() => _currentIndex = index);
+                },
+                itemBuilder: (context, index) {
+                  final post = widget.posts[index];
+                  final imageUrl = post['imageUrl'] as String?;
+                  if (imageUrl == null) return const SizedBox();
+
+                  return GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Center(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          imageUrl,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              width: 200,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF1269C7),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Username and Date below the image
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () {
+                final userId = widget.posts[_currentIndex]['userId'];
+                if (userId != null) {
+                  Navigator.of(context).pop();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileScreen(userId: userId),
+                    ),
+                  );
+                }
+              },
+              child: Text(
+                '@${widget.posts[_currentIndex]['username'] ?? 'Cyclist'}',
+                style: GoogleFonts.hammersmithOne(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Colors.white.withOpacity(0.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _formatDate(widget.posts[_currentIndex]['timestamp']),
+              style: GoogleFonts.hammersmithOne(
+                color: Colors.grey[400],
+                fontSize: 12,
+              ),
+            ),
+            // Page indicator dots
+            if (widget.posts.length > 1) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  widget.posts.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: index == _currentIndex
+                          ? const Color(0xFF1269C7)
+                          : Colors.white.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

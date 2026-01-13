@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final String? userId; // Optional: if provided, view this user's profile (read-only)
+
+  const ProfileScreen({super.key, this.userId});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -19,6 +21,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _profilePictureUrl;
   Map<String, List<Map<String, dynamic>>> _postsByIsland = {};
 
+  // Check if we're viewing another user's profile
+  bool get isViewingOtherProfile => widget.userId != null;
+
   @override
   void initState() {
     super.initState();
@@ -26,9 +31,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _fetchUserData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      // Fetch user profile data
+    String? targetUserId = widget.userId;
+    
+    // If no userId provided, use current user
+    if (targetUserId == null) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      targetUserId = user.uid;
+      
+      // Fetch current user profile data by email
       final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: user.email)
@@ -38,38 +49,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final userData = querySnapshot.docs.first.data();
         if (mounted) {
           setState(() {
-            _displayName =
-                userData['username'] ?? userData['email'] ?? "Traveller";
+            _displayName = userData['username'] ?? userData['email'] ?? "Traveller";
             _bio = userData['bio'] ?? "";
             _profilePictureUrl = userData['profilepicture'];
           });
         }
       }
+    } else {
+      // Fetch other user's profile data by userId
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(targetUserId)
+          .get();
 
-      // Fetch user's posts and group by island
-      try {
-        final postsSnapshot = await FirebaseFirestore.instance
-            .collection('posts')
-            .where('userId', isEqualTo: user.uid)
-            .orderBy('timestamp', descending: true)
-            .get();
-
-        final Map<String, List<Map<String, dynamic>>> groupedPosts = {};
-        for (var doc in postsSnapshot.docs) {
-          final data = doc.data();
-          final island = data['island'] ?? 'Unknown';
-          groupedPosts.putIfAbsent(island, () => []).add(data);
-        }
-
+      if (userDoc.exists) {
+        final userData = userDoc.data()!;
         if (mounted) {
           setState(() {
-            _postsByIsland = groupedPosts;
-            _postCount = postsSnapshot.docs.length;
+            _displayName = userData['username'] ?? "Traveller";
+            _bio = userData['bio'] ?? "";
+            _profilePictureUrl = userData['profilepicture'];
           });
         }
-      } catch (e) {
-        debugPrint('Error fetching posts: $e');
       }
+    }
+
+    // Fetch user's posts and group by island
+    try {
+      final postsSnapshot = await FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: targetUserId)
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      final Map<String, List<Map<String, dynamic>>> groupedPosts = {};
+      for (var doc in postsSnapshot.docs) {
+        final data = doc.data();
+        final island = data['island'] ?? 'Unknown';
+        groupedPosts.putIfAbsent(island, () => []).add(data);
+      }
+
+      if (mounted) {
+        setState(() {
+          _postsByIsland = groupedPosts;
+          _postCount = postsSnapshot.docs.length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching posts: $e');
     }
   }
 
@@ -81,10 +108,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return _ExpandedImageViewer(
           posts: posts,
           initialIndex: initialIndex,
-          onDelete: (post) async {
-            Navigator.of(context).pop();
-            await _deletePost(post);
-          },
+          onDelete: isViewingOtherProfile
+              ? null
+              : (post) async {
+                  Navigator.of(context).pop();
+                  await _deletePost(post);
+                },
         );
       },
     );
@@ -301,31 +330,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Settings Icon Row
+                          // Settings Icon (own profile) or Back Button (other's profile)
                           Align(
-                            alignment: Alignment.topRight,
+                            alignment: isViewingOtherProfile ? Alignment.topLeft : Alignment.topRight,
                             child: Padding(
-                              padding:
-                                  const EdgeInsets.only(top: 10, right: 20),
-                              child: GestureDetector(
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const SettingsScreen(),
-                                    ),
-                                  );
-                                  // Refresh data when returning from settings
-                                  _fetchUserData();
-                                },
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: const BoxDecoration(),
-                                  child: const Icon(Icons.settings),
-                                ),
+                              padding: EdgeInsets.only(
+                                top: 10,
+                                left: isViewingOtherProfile ? 10 : 0,
+                                right: isViewingOtherProfile ? 0 : 20,
                               ),
+                              child: isViewingOtherProfile
+                                  ? IconButton(
+                                      icon: const Icon(Icons.arrow_back, color: Color(0xFF1269C7)),
+                                      onPressed: () => Navigator.pop(context),
+                                    )
+                                  : GestureDetector(
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const SettingsScreen(),
+                                          ),
+                                        );
+                                        // Refresh data when returning from settings
+                                        _fetchUserData();
+                                      },
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: const BoxDecoration(),
+                                        child: const Icon(Icons.settings),
+                                      ),
+                                    ),
                             ),
                           ),
                           // Profile Picture and Stats
@@ -640,12 +677,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 class _ExpandedImageViewer extends StatefulWidget {
   final List<Map<String, dynamic>> posts;
   final int initialIndex;
-  final Function(Map<String, dynamic>) onDelete;
+  final Function(Map<String, dynamic>)? onDelete;
 
   const _ExpandedImageViewer({
     required this.posts,
     required this.initialIndex,
-    required this.onDelete,
+    this.onDelete,
   });
 
   @override
@@ -724,60 +761,61 @@ class _ExpandedImageViewerState extends State<_ExpandedImageViewer> {
                               },
                             ),
                           ),
-                          // Three-dot Menu Button (top right, attached to image)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: GestureDetector(
-                              onTap: () {}, // Prevent tap from closing dialog
-                              child: PopupMenuButton<String>(
-                                padding: EdgeInsets.zero,
-                                icon: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF1269C7),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.more_vert,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                                color: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                onSelected: (value) {
-                                  if (value == 'delete') {
-                                    widget.onDelete(widget.posts[_currentIndex]);
-                                  }
-                                },
-                                itemBuilder: (BuildContext context) => [
-                                  PopupMenuItem<String>(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.red,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Delete Post',
-                                          style: GoogleFonts.hammersmithOne(
-                                            color: Colors.red,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ],
+                          // Three-dot Menu Button (only show if delete is available)
+                          if (widget.onDelete != null)
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () {}, // Prevent tap from closing dialog
+                                child: PopupMenuButton<String>(
+                                  padding: EdgeInsets.zero,
+                                  icon: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF1269C7),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.more_vert,
+                                      color: Colors.white,
+                                      size: 14,
                                     ),
                                   ),
-                                ],
+                                  color: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  onSelected: (value) {
+                                    if (value == 'delete') {
+                                      widget.onDelete!(widget.posts[_currentIndex]);
+                                    }
+                                  },
+                                  itemBuilder: (BuildContext context) => [
+                                    PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Delete Post',
+                                            style: GoogleFonts.hammersmithOne(
+                                              color: Colors.red,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
