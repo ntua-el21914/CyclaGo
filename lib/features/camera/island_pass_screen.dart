@@ -54,7 +54,8 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
             _realUsername = userDoc.data()!['username'];
           } else {
             // Fallback: Try Auth Display Name or Email
-            _realUsername = user.displayName ?? user.email?.split('@')[0] ?? "Cyclist";
+            _realUsername =
+                user.displayName ?? user.email?.split('@')[0] ?? "Cyclist";
           }
         });
       }
@@ -68,10 +69,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
       context: context,
       barrierColor: Colors.black.withOpacity(0.85),
       builder: (BuildContext context) {
-        return _IslandPassImageViewer(
-          posts: posts,
-          initialIndex: initialIndex,
-        );
+        return _IslandPassImageViewer(posts: posts, initialIndex: initialIndex);
       },
     );
   }
@@ -92,21 +90,26 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     // If we haven't found the real username yet, wait a moment or try with default
     final targetName = _realUsername ?? "Cyclist";
     final currentIsland = widget.currentIsland ?? 'Naxos';
-    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+    final twentyFourHoursAgo = DateTime.now().subtract(
+      const Duration(hours: 24),
+    );
 
     return StreamBuilder<QuerySnapshot>(
       // Query: Did *I* (using my real DB name) post here recently?
       stream: FirebaseFirestore.instance
           .collection('posts')
-          .where('username', isEqualTo: targetName) 
+          .where('username', isEqualTo: targetName)
           .where('island', isEqualTo: currentIsland)
-          .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
+          .where(
+            'timestamp',
+            isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo),
+          )
           .snapshots(),
       builder: (context, snapshot) {
-        
         // Unlocked if Firestore has data OR local session has data
-        bool isUnlocked = (snapshot.hasData && snapshot.data!.docs.isNotEmpty) || 
-                          GlobalFeedData.posts.isNotEmpty;
+        bool isUnlocked =
+            (snapshot.hasData && snapshot.data!.docs.isNotEmpty) ||
+            GlobalFeedData.posts.isNotEmpty;
 
         return _buildValidIslandPass(primaryBlue, isUnlocked);
       },
@@ -122,13 +125,13 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
           children: [
             _buildHeader(primaryBlue),
             Expanded(
-              child: SingleChildScrollView( 
+              child: SingleChildScrollView(
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20.0),
                     child: Container(
-                      width: 364, 
-                      height: 600,
+                      width: 364,
+                      height: 650,
                       clipBehavior: Clip.antiAlias,
                       decoration: ShapeDecoration(
                         color: Colors.white,
@@ -140,46 +143,98 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                       child: Stack(
                         children: [
                           Positioned(
-                            left: 0, right: 0, top: 180,
-                            child: Icon(Icons.warning_amber_rounded, size: 80, color: primaryBlue),
-                          ),
-                          Positioned(
-                            left: 49, top: 280,
-                            child: Container(
-                              width: 265, height: 43,
-                              decoration: ShapeDecoration(
-                                shape: RoundedRectangleBorder(
-                                  side: BorderSide(width: 4, color: primaryBlue),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              child: Center(child: Text('Invalid Location', style: GoogleFonts.hammersmithOne(color: primaryBlue, fontSize: 24, fontWeight: FontWeight.bold))),
+                            left: 0,
+                            right: 0,
+                            top: 180,
+                            child: Icon(
+                              Icons.warning_amber_rounded,
+                              size: 80,
+                              color: primaryBlue,
                             ),
                           ),
                           Positioned(
-                            left: 117, top: 450,
+                            left: 49,
+                            top: 280,
+                            child: Container(
+                              width: 265,
+                              height: 43,
+                              decoration: ShapeDecoration(
+                                shape: RoundedRectangleBorder(
+                                  side: BorderSide(
+                                    width: 4,
+                                    color: primaryBlue,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Invalid Location',
+                                  style: GoogleFonts.hammersmithOne(
+                                    color: primaryBlue,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 117,
+                            top: 450,
                             child: GestureDetector(
-                              onTap: _isRetrying ? null : () async {
-                                if (widget.onRetry != null) {
-                                  setState(() => _isRetrying = true);
-                                  await Future.delayed(const Duration(milliseconds: 500)); 
-                                  widget.onRetry!();
-                                  if (mounted) setState(() => _isRetrying = false);
-                                }
-                              },
+                              onTap: _isRetrying
+                                  ? null
+                                  : () async {
+                                      if (widget.onRetry != null) {
+                                        setState(() => _isRetrying = true);
+                                        await Future.delayed(
+                                          const Duration(milliseconds: 500),
+                                        );
+                                        widget.onRetry!();
+                                        if (mounted)
+                                          setState(() => _isRetrying = false);
+                                      }
+                                    },
                               child: Container(
-                                width: 130, height: 40,
+                                width: 130,
+                                height: 40,
                                 decoration: ShapeDecoration(
-                                  color: _isRetrying ? Colors.white : primaryBlue,
+                                  color: _isRetrying
+                                      ? Colors.white
+                                      : primaryBlue,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
-                                    side: _isRetrying ? BorderSide(width: 2, color: primaryBlue) : BorderSide.none,
+                                    side: _isRetrying
+                                        ? BorderSide(
+                                            width: 2,
+                                            color: primaryBlue,
+                                          )
+                                        : BorderSide.none,
                                   ),
                                 ),
                                 child: Center(
                                   child: _isRetrying
-                                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(primaryBlue)))
-                                    : Text('Try again?', style: GoogleFonts.hammersmithOne(color: _isRetrying ? primaryBlue : Colors.white, fontSize: 18)),
+                                      ? SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  primaryBlue,
+                                                ),
+                                          ),
+                                        )
+                                      : Text(
+                                          'Try again?',
+                                          style: GoogleFonts.hammersmithOne(
+                                            color: _isRetrying
+                                                ? primaryBlue
+                                                : Colors.white,
+                                            fontSize: 18,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
@@ -214,7 +269,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-                    
+
                     // --- GROUP CHAT BUTTON ---
                     if (isUnlocked) ...[
                       GestureDetector(
@@ -222,7 +277,8 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => GroupChatScreen(islandName: displayIsland),
+                              builder: (context) =>
+                                  GroupChatScreen(islandName: displayIsland),
                             ),
                           );
                         },
@@ -234,32 +290,49 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                             borderRadius: BorderRadius.circular(30),
                             border: Border.all(color: primaryBlue, width: 1.5),
                             boxShadow: [
-                              BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3)),
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.1),
+                                blurRadius: 5,
+                                offset: const Offset(0, 3),
+                              ),
                             ],
                           ),
                           child: Row(
                             children: [
                               const SizedBox(width: 10),
                               Container(
-                                width: 40, height: 40,
+                                width: 40,
+                                height: 40,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   image: DecorationImage(
-                                    image: NetworkImage(DestinationService.getIslandImage(displayIsland)),
+                                    image: NetworkImage(
+                                      DestinationService.getIslandImage(
+                                        displayIsland,
+                                      ),
+                                    ),
                                     fit: BoxFit.cover,
-                                    onError: (e, s) {}, 
+                                    onError: (e, s) {},
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 15),
                               Text(
                                 "$displayIsland Groupchat",
-                                style: GoogleFonts.hammersmithOne(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+                                style: GoogleFonts.hammersmithOne(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
                               ),
                               const Spacer(),
                               const Padding(
                                 padding: EdgeInsets.only(right: 20.0),
-                                child: Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF1269C7)),
+                                child: Icon(
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color: Color(0xFF1269C7),
+                                ),
                               ),
                             ],
                           ),
@@ -271,8 +344,8 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                     // --- FEED or LOCKED STATE ---
                     Expanded(
                       child: isUnlocked
-                        ? _buildRealSocialFeed(primaryBlue, bottomPadding)
-                        : _buildEmptyState(context, primaryBlue),
+                          ? _buildRealSocialFeed(primaryBlue, bottomPadding)
+                          : _buildEmptyState(context, primaryBlue),
                     ),
                   ],
                 ),
@@ -292,7 +365,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: primaryBlue, width: 1.5),
+        border: Border.all(color: primaryBlue, width: 2),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -301,21 +374,35 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
             onTap: () async {
               await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => CameraScreen(currentIsland: widget.currentIsland)),
+                MaterialPageRoute(
+                  builder: (context) =>
+                      CameraScreen(currentIsland: widget.currentIsland),
+                ),
               );
               // Refresh username and state when returning
               _resolveUsername();
             },
             child: Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(20)),
-              child: const Icon(Icons.camera_alt_rounded, size: 50, color: Colors.white),
+              decoration: BoxDecoration(
+                color: primaryBlue,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.camera_alt_rounded,
+                size: 50,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: 20),
           Text(
             "Post to view",
-            style: GoogleFonts.hammersmithOne(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
+            style: GoogleFonts.hammersmithOne(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
         ],
       ),
@@ -338,21 +425,32 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
         }
 
         final now = DateTime.now();
-        final docs = snapshot.data?.docs.where((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          if (data['timestamp'] == null) return false;
-          final Timestamp ts = data['timestamp'];
-          return now.difference(ts.toDate()).inHours < 24;
-        }).toList() ?? [];
-        
+        final docs =
+            snapshot.data?.docs.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              if (data['timestamp'] == null) return false;
+              final Timestamp ts = data['timestamp'];
+              return now.difference(ts.toDate()).inHours < 24;
+            }).toList() ??
+            [];
+
         if (docs.isEmpty) {
-          return Center(child: Text("No posts in the last 24h.\nBe the first!", textAlign: TextAlign.center, style: GoogleFonts.hammersmithOne()));
+          return Center(
+            child: Text(
+              "No posts in the last 24h.\nBe the first!",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.hammersmithOne(),
+            ),
+          );
         }
 
         return GridView.builder(
           padding: EdgeInsets.only(bottom: bottomPadding, top: 10),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.8,
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 0.8,
           ),
           itemCount: docs.length,
           itemBuilder: (context, index) {
@@ -363,66 +461,89 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
             final String? userId = data['userId'];
 
             // Prepare posts list for expanded viewer
-            final postsList = docs.map((d) => d.data() as Map<String, dynamic>).toList();
+            final postsList = docs
+                .map((d) => d.data() as Map<String, dynamic>)
+                .toList();
 
             return GestureDetector(
               onTap: () => _showExpandedImage(postsList, index),
               child: Container(
                 decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                color: Colors.black,
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5)],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
-                    ),
-                    Positioned(
-                      bottom: 0, left: 0, right: 0,
-                      child: Container(
-                        height: 60,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.black.withOpacity(0.8), Colors.transparent],
-                            begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 12, left: 12,
-                      child: GestureDetector(
-                        onTap: userId != null ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProfileScreen(userId: userId),
-                            ),
-                          );
-                        } : null,
-                        child: Text(
-                          "@$username",
-                          style: GoogleFonts.hammersmithOne(
-                            color: Colors.white, 
-                            fontSize: 14, 
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Colors.white.withOpacity(0.5),
-                          ),
-                        ),
-                      ),
+                  borderRadius: BorderRadius.circular(15),
+                  color: Colors.black,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 5,
                     ),
                   ],
                 ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withOpacity(0.8),
+                                Colors.transparent,
+                              ],
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        child: GestureDetector(
+                          onTap: userId != null
+                              ? () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ProfileScreen(userId: userId),
+                                    ),
+                                  );
+                                }
+                              : null,
+                          child: Text(
+                            "@$username",
+                            style: GoogleFonts.hammersmithOne(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          );
+            );
           },
         );
       },
@@ -440,7 +561,11 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
       child: Center(
         child: Text(
           'Island Pass',
-          style: GoogleFonts.hammersmithOne(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+          style: GoogleFonts.hammersmithOne(
+            color: Colors.black,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
