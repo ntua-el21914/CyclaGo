@@ -424,6 +424,7 @@ class _InfoCard extends StatefulWidget {
   final VoidCallback? onLongPress;
 
   const _InfoCard({
+    super.key,
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -437,39 +438,45 @@ class _InfoCard extends StatefulWidget {
 
 class _InfoCardState extends State<_InfoCard> {
   bool _isJustShared = false;
+  bool _showLockedError = false; // New state for the error feedback
 
   void _handleLongPress() {
-    if (widget.isLocked || widget.onLongPress == null) {
-      if (widget.isLocked) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: Colors.redAccent,
-            content: Text("Unlock Island Pass to share!"),
-          ),
-        );
-      }
+    // IF LOCKED: Show "Island Pass Locked" error
+    if (widget.isLocked) {
+      setState(() => _showLockedError = true);
+
+      // Revert the error text after 1.5 seconds
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) setState(() => _showLockedError = false);
+      });
       return;
     }
 
-    // 1. Call the Firebase Logic
-    widget.onLongPress!();
+    // IF UNLOCKED: Proceed with sharing
+    if (widget.onLongPress != null) {
+      widget.onLongPress!();
+      setState(() => _isJustShared = true);
 
-    // 2. Animate the UI
-    setState(() => _isJustShared = true);
-
-    // 3. Revert UI
-    Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) setState(() => _isJustShared = false);
-    });
+      Future.delayed(const Duration(milliseconds: 2000), () {
+        if (mounted) setState(() => _isJustShared = false);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
-    final Color bgColor = _isJustShared ? primaryBlue : Colors.white;
-    final Color contentColor = widget.isLocked
-        ? Colors.grey
-        : (_isJustShared ? Colors.white : primaryBlue);
+    const Color errorRed = Colors.redAccent;
+
+    // Determine background color
+    Color bgColor = Colors.white;
+    if (_isJustShared) bgColor = primaryBlue;
+    if (_showLockedError) bgColor = errorRed;
+
+    // Determine content color (text and icons)
+    Color contentColor = primaryBlue;
+    if (widget.isLocked && !_showLockedError) contentColor = Colors.grey;
+    if (_isJustShared || _showLockedError) contentColor = Colors.white;
 
     return GestureDetector(
       onLongPress: _handleLongPress,
@@ -488,18 +495,22 @@ class _InfoCardState extends State<_InfoCard> {
           children: [
             Expanded(
               child: Text(
-                _isJustShared ? "Event Shared!" : widget.title,
+                _showLockedError
+                    ? "Island Pass Locked!"
+                    : (_isJustShared ? "Event Shared!" : widget.title),
                 style: GoogleFonts.hammersmithOne(
                   color: contentColor,
                   fontSize: 16,
-                  fontWeight: _isJustShared
+                  fontWeight: (_isJustShared || _showLockedError)
                       ? FontWeight.bold
                       : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (!_isJustShared)
+
+            // Show icons only when in normal state
+            if (!_isJustShared && !_showLockedError)
               Row(
                 children: [
                   Text(
@@ -518,8 +529,10 @@ class _InfoCardState extends State<_InfoCard> {
                 ],
               )
             else
-              const Icon(
-                Icons.check_circle_outline,
+              Icon(
+                _showLockedError
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_outline,
                 color: Colors.white,
                 size: 20,
               ),
