@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _currentIslandName;
 
   late Stream<QuerySnapshot> _eventsStream;
-  late Stream<QuerySnapshot> _challengesStream;
+  // Dynamic challenges - computed from user posts
   late Stream<QuerySnapshot> _unlockStatusStream;
 
   @override
@@ -32,9 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController.addListener(_onPageChanged);
 
     _eventsStream = FirebaseFirestore.instance.collection('events').snapshots();
-    _challengesStream = FirebaseFirestore.instance
-        .collection('challenges')
-        .snapshots();
 
     final user = FirebaseAuth.instance.currentUser;
     final twentyFourHoursAgo = DateTime.now().subtract(
@@ -188,13 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     isUnlocked,
                   ),
                   const SizedBox(height: 30),
-                  _buildFirebaseSection(
-                    "Challenges",
-                    _challengesStream,
-                    primaryBlue,
-                    false,
-                    isUnlocked,
-                  ),
+                  _buildDynamicChallenges(primaryBlue),
                 ],
               ),
             ),
@@ -265,6 +256,89 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDynamicChallenges(Color blue) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        int uniqueIslands = 0;
+        int totalPosts = 0;
+
+        if (snapshot.hasData) {
+          final docs = snapshot.data!.docs;
+          totalPosts = docs.length;
+          
+          // Count unique islands
+          final islands = <String>{};
+          for (var doc in docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final island = data['island'] as String?;
+            if (island != null) {
+              islands.add(island);
+            }
+          }
+          uniqueIslands = islands.length;
+        }
+
+        // Calculate progressive targets (increase by 5 each time goal is met)
+        // Islands: base 5, Posts: base 10
+        final int islandBase = 5;
+        final int islandTarget = ((uniqueIslands ~/ islandBase) + 1) * islandBase;
+        final int postBase = 10;
+        final int postTarget = ((totalPosts ~/ postBase) + 1) * postBase;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: blue, width: 2),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Challenges',
+                style: GoogleFonts.hammersmithOne(
+                  color: blue,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 15),
+              // Challenge 1: Visit Islands (progressive)
+              _ChallengeCard(
+                title: 'Visit $islandTarget Islands',
+                progress: uniqueIslands,
+                target: islandTarget,
+                icon: Icons.flag,
+              ),
+              const SizedBox(height: 12),
+              // Challenge 2: Make Posts (progressive)
+              _ChallengeCard(
+                title: 'Make $postTarget Posts',
+                progress: totalPosts,
+                target: postTarget,
+                icon: Icons.camera_enhance,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -451,6 +525,71 @@ class _InfoCardState extends State<_InfoCard> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// --- CHALLENGE CARD ---
+class _ChallengeCard extends StatelessWidget {
+  final String title;
+  final int progress;
+  final int target;
+  final IconData icon;
+
+  const _ChallengeCard({
+    required this.title,
+    required this.progress,
+    required this.target,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryBlue = Color(0xFF1269C7);
+    final bool isCompleted = progress >= target;
+    final Color contentColor = isCompleted ? Colors.green : primaryBlue;
+
+    return Container(
+      width: double.infinity,
+      height: 55,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: contentColor, width: 1.5),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.hammersmithOne(
+                color: contentColor,
+                fontSize: 16,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Row(
+            children: [
+              Text(
+                '$progress/$target',
+                style: GoogleFonts.hammersmithOne(
+                  color: contentColor,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                isCompleted ? Icons.check_circle : icon,
+                size: 18,
+                color: contentColor,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
