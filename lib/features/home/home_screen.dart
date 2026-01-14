@@ -19,8 +19,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _selectedIslands = [];
   late PageController _pageController;
   double _currentPage = 0.0;
-
-  // FIX: Initialize as null so we can check if location is ready
   String? _currentIslandName;
 
   late Stream<QuerySnapshot> _eventsStream;
@@ -54,63 +52,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _fetchUserName();
     _selectRandomIslands();
-    // Start getting location immediately
     _getCurrentIsland();
   }
 
-  void _selectRandomIslands({String? currentIsland}) {
-    List<String> allIslands = List<String>.from(DestinationService.islands);
-    allIslands.shuffle();
-
-    if (currentIsland != null) {
-      allIslands.removeWhere(
-        (island) => island.toLowerCase() == currentIsland.toLowerCase(),
-      );
-      allIslands.insert(0, currentIsland);
-      _currentIslandName = currentIsland; // Update the tracking variable
-    }
-
-    if (mounted) {
-      setState(() {
-        _selectedIslands = allIslands.take(4).toList();
-      });
-    }
-  }
-
-  Future<void> _getCurrentIsland() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
-
-        String? island = DestinationService.findNearestIsland(
-          position.latitude,
-          position.longitude,
-        );
-
-        if (island != null && mounted) {
-          _selectRandomIslands(currentIsland: island);
-          if (_pageController.hasClients) {
-            _pageController.jumpToPage(0);
-          }
-        }
-      }
-    } catch (e) {
-      print("Location error: $e");
-    }
-  }
-
   void _onPageChanged() {
-    setState(() {
-      _currentPage = _pageController.page ?? 0;
-    });
+    setState(() => _currentPage = _pageController.page ?? 0);
   }
 
   Future<void> _fetchUserName() async {
@@ -121,52 +67,52 @@ class _HomeScreenState extends State<HomeScreen> {
           .doc(user.uid)
           .get();
       if (doc.exists && mounted) {
-        setState(() {
-          _displayName = doc.data()?['username'] ?? 'Cyclist';
-        });
+        setState(() => _displayName = doc.data()?['username'] ?? 'Cyclist');
       }
     }
   }
 
-  // --- UPDATED SHARE LOGIC ---
-  void _shareEventToChat(String title, String subtitle, bool isUnlocked) async {
-    if (!isUnlocked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior:
-              SnackBarBehavior.floating, // Makes it float above the bottom
-          margin: const EdgeInsets.only(
-            bottom: 110,
-            left: 20,
-            right: 20,
-          ), // Positions it above the nav bar
-          backgroundColor: Colors.redAccent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          content: Text(
-            "Island Pass Locked! Post a photo to share.",
-            style: GoogleFonts.hammersmithOne(),
-          ),
-        ),
-      );
-      return;
+  void _selectRandomIslands({String? currentIsland}) {
+    List<String> all = List<String>.from(DestinationService.islands);
+    all.shuffle();
+    if (currentIsland != null) {
+      all.removeWhere((i) => i.toLowerCase() == currentIsland.toLowerCase());
+      all.insert(0, currentIsland);
+      _currentIslandName = currentIsland;
     }
+    if (mounted) setState(() => _selectedIslands = all.take(4).toList());
+  }
 
+  Future<void> _getCurrentIsland() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      String? island = DestinationService.findNearestIsland(
+        position.latitude,
+        position.longitude,
+      );
+      if (island != null && mounted) {
+        _selectRandomIslands(currentIsland: island);
+        if (_pageController.hasClients) _pageController.jumpToPage(0);
+      }
+    } catch (e) {
+      print("Loc Error: $e");
+    }
+  }
+
+  // --- SHARING LOGIC ---
+  Future<void> _shareEventToChat(String title, String subtitle) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Ensure we have the location before sending
-    if (_currentIslandName == null) {
-      await _getCurrentIsland();
-    }
-
-    final String targetIsland = _currentIslandName ?? "Naxos";
+    if (_currentIslandName == null) await _getCurrentIsland();
+    final String islandDoc = (_currentIslandName ?? "Naxos").toLowerCase();
 
     try {
       await FirebaseFirestore.instance
           .collection('destinations')
-          .doc(targetIsland.toLowerCase())
+          .doc(islandDoc)
           .collection('messages')
           .add({
             'text': "📢 Event: $title ($subtitle)",
@@ -174,40 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
             'senderName': _displayName,
             'timestamp': FieldValue.serverTimestamp(),
           });
-
-      // --- SUCCESS POP UP AT BOTTOM ---
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            // Margin bottom 110 matches your page padding to sit perfectly above the Nav Bar
-            margin: const EdgeInsets.only(bottom: 110, left: 20, right: 20),
-            backgroundColor: const Color(0xFF1269C7),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            duration: const Duration(seconds: 2),
-            content: Row(
-              children: [
-                const Icon(
-                  Icons.check_circle_outline,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    "Shared to $targetIsland Chat!",
-                    style: GoogleFonts.hammersmithOne(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
     } catch (e) {
-      debugPrint("Sharing error: $e");
+      debugPrint("Sharing failed: $e");
     }
   }
 
@@ -252,7 +166,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   SizedBox(
                     height: 330,
                     child: PageView.builder(
@@ -267,7 +180,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 10),
                   _buildPageIndicator(primaryBlue),
                   const SizedBox(height: 30),
-
                   _buildFirebaseSection(
                     "Events",
                     _eventsStream,
@@ -327,25 +239,22 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context, snapshot) {
               if (!snapshot.hasData)
                 return const Center(child: CircularProgressIndicator());
-
               return Column(
                 children: snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
-                  bool isItemLocked = !isPassUnlocked && isEvent;
-
+                  bool itemLocked = !isPassUnlocked && isEvent;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _InfoCard(
                       title: data['title'] ?? '',
                       subtitle: data['subtitle'] ?? '',
                       icon: _getIconData(data['icon'] ?? ''),
-                      isLocked: isItemLocked,
-                      // The share logic now uses the latest location data
+                      isLocked: itemLocked,
+                      // Pass the logic to the card
                       onLongPress: isEvent
                           ? () => _shareEventToChat(
                               data['title'],
                               data['subtitle'],
-                              isPassUnlocked,
                             )
                           : null,
                     ),
@@ -432,7 +341,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _InfoCard extends StatelessWidget {
+// --- ANIMATED CARD ---
+class _InfoCard extends StatefulWidget {
   final String title;
   final String subtitle;
   final IconData icon;
@@ -448,58 +358,97 @@ class _InfoCard extends StatelessWidget {
   });
 
   @override
+  State<_InfoCard> createState() => _InfoCardState();
+}
+
+class _InfoCardState extends State<_InfoCard> {
+  bool _isJustShared = false;
+
+  void _handleLongPress() {
+    if (widget.isLocked || widget.onLongPress == null) {
+      if (widget.isLocked) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text("Unlock Island Pass to share!"),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 1. Call the Firebase Logic
+    widget.onLongPress!();
+
+    // 2. Animate the UI
+    setState(() => _isJustShared = true);
+
+    // 3. Revert UI
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _isJustShared = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
-    Color contentColor = isLocked ? Colors.grey : primaryBlue;
+    final Color bgColor = _isJustShared ? primaryBlue : Colors.white;
+    final Color contentColor = widget.isLocked
+        ? Colors.grey
+        : (_isJustShared ? Colors.white : primaryBlue);
 
     return GestureDetector(
-      onLongPress: onLongPress,
-      child: Container(
+      onLongPress: _handleLongPress,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         width: double.infinity,
         height: 55,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: bgColor,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(color: contentColor, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: Text(
-                title,
+                _isJustShared ? "Event Shared!" : widget.title,
                 style: GoogleFonts.hammersmithOne(
                   color: contentColor,
                   fontSize: 16,
+                  fontWeight: _isJustShared
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Row(
-              children: [
-                Text(
-                  subtitle,
-                  style: GoogleFonts.hammersmithOne(
-                    color: contentColor,
-                    fontSize: 13,
+            if (!_isJustShared)
+              Row(
+                children: [
+                  Text(
+                    widget.subtitle,
+                    style: GoogleFonts.hammersmithOne(
+                      color: contentColor,
+                      fontSize: 13,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Icon(
-                  isLocked ? Icons.lock_outline : icon,
-                  size: 18,
-                  color: contentColor,
-                ),
-              ],
-            ),
+                  const SizedBox(width: 10),
+                  Icon(
+                    widget.isLocked ? Icons.lock_outline : widget.icon,
+                    size: 18,
+                    color: contentColor,
+                  ),
+                ],
+              )
+            else
+              const Icon(
+                Icons.check_circle_outline,
+                color: Colors.white,
+                size: 20,
+              ),
           ],
         ),
       ),
