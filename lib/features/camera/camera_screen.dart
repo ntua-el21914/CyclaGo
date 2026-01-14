@@ -19,7 +19,8 @@ class _CameraScreenState extends State<CameraScreen> {
   CameraController? _controller;
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
-  // bool _isUploading = false; // Δεν χρειάζεται πια εδώ
+  int _currentCameraIndex = 0;
+  FlashMode _currentFlashMode = FlashMode.off;
 
   @override
   void initState() {
@@ -30,13 +31,78 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> _initializeCamera() async {
     _cameras = await availableCameras();
     if (_cameras != null && _cameras!.isNotEmpty) {
-      _controller = CameraController(
-        _cameras![0],
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-      await _controller!.initialize();
-      if (mounted) setState(() => _isCameraInitialized = true);
+      await _setupCamera(_currentCameraIndex);
+    }
+  }
+
+  Future<void> _setupCamera(int cameraIndex) async {
+    if (_controller != null) {
+      await _controller!.dispose();
+    }
+    
+    _controller = CameraController(
+      _cameras![cameraIndex],
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
+    
+    await _controller!.initialize();
+    
+    // Restore flash mode after camera switch
+    if (_controller!.value.isInitialized) {
+      await _controller!.setFlashMode(_currentFlashMode);
+    }
+    
+    if (mounted) setState(() => _isCameraInitialized = true);
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    
+    // Cycle through flash modes: off -> auto -> always -> torch -> off
+    FlashMode newMode;
+    switch (_currentFlashMode) {
+      case FlashMode.off:
+        newMode = FlashMode.auto;
+        break;
+      case FlashMode.auto:
+        newMode = FlashMode.always;
+        break;
+      case FlashMode.always:
+        newMode = FlashMode.torch;
+        break;
+      case FlashMode.torch:
+        newMode = FlashMode.off;
+        break;
+    }
+    
+    try {
+      await _controller!.setFlashMode(newMode);
+      setState(() => _currentFlashMode = newMode);
+    } catch (e) {
+      print("Flash error: $e");
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (_cameras == null || _cameras!.length < 2) return;
+    
+    setState(() => _isCameraInitialized = false);
+    
+    _currentCameraIndex = (_currentCameraIndex + 1) % _cameras!.length;
+    await _setupCamera(_currentCameraIndex);
+  }
+
+  IconData _getFlashIcon() {
+    switch (_currentFlashMode) {
+      case FlashMode.off:
+        return Icons.flash_off;
+      case FlashMode.auto:
+        return Icons.flash_auto;
+      case FlashMode.always:
+        return Icons.flash_on;
+      case FlashMode.torch:
+        return Icons.highlight;
     }
   }
 
@@ -111,8 +177,8 @@ class _CameraScreenState extends State<CameraScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    onPressed: () {}, 
-                    icon: const Icon(Icons.flash_on, color: primaryBlue, size: 40),
+                    onPressed: _toggleFlash, 
+                    icon: Icon(_getFlashIcon(), color: primaryBlue, size: 40),
                   ),
 
                   // SHUTTER BUTTON
@@ -130,7 +196,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   ),
 
                   IconButton(
-                    onPressed: () {}, 
+                    onPressed: _switchCamera, 
                     icon: const Icon(Icons.cached, color: primaryBlue, size: 40),
                   ),
                 ],
