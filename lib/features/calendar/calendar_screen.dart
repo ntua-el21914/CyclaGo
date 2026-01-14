@@ -20,6 +20,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9FC),
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             // Header matching Island Pass style
@@ -44,7 +45,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             // Body content
             Expanded(
               child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.only(top: 20.0, left: 20.0, right: 20.0, bottom: 130.0),
         child: Column(
           children: [
             // Create new plan card
