@@ -299,6 +299,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
   Widget _buildEmptyState(BuildContext context, Color primaryBlue) {
     return Container(
       width: double.infinity,
+      height: MediaQuery.of(context).size.height - 280,
       margin: const EdgeInsets.only(bottom: 30),
       decoration: BoxDecoration(
         color: Colors.white,
