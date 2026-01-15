@@ -28,39 +28,66 @@ class IslandPassScreen extends StatefulWidget {
 
 class _IslandPassScreenState extends State<IslandPassScreen> {
   bool _isRetrying = false;
-  String? _realUsername; // Stores the actual username from DB (e.g. "_GeoFlo")
+  String? _realUsername;
+
+  // --- DELOADING: Pre-define Streams ---
+  late Stream<QuerySnapshot> _unlockCheckStream;
+  late Stream<QuerySnapshot> _socialFeedStream;
 
   @override
   void initState() {
     super.initState();
-    _resolveUsername();
+    
+    // 1. Initialize streams IMMEDIATELY to avoid LateInitializationError
+    final user = FirebaseAuth.instance.currentUser;
+    final targetIsland = widget.currentIsland ?? 'Naxos';
+    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+
+    // Stream to check if the user themselves has unlocked the pass
+    _unlockCheckStream = FirebaseFirestore.instance
+        .collection('posts')
+        .where('userId', isEqualTo: user?.uid) // Faster to query by UID than username
+        .where('island', isEqualTo: targetIsland)
+        .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
+        .snapshots();
+
+    // Stream for the general social feed grid
+    _socialFeedStream = FirebaseFirestore.instance
+        .collection('posts')
+        .where('island', isEqualTo: targetIsland)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+
+    // 2. Heavy work in microtask to keep Main Thread clean
+    Future.microtask(() {
+      _resolveUsername();
+    });
   }
 
-  // --- CRITICAL FIX: GET REAL USERNAME ---
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 3. PRE-CACHE the island groupchat image to avoid flickering
+    final islandImg = DestinationService.getIslandImage(widget.currentIsland ?? "Naxos");
+    precacheImage(NetworkImage(islandImg), context);
+  }
+
   Future<void> _resolveUsername() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
     try {
-      // Fetch the user document to get the exact username stored in DB
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (mounted) {
         setState(() {
           if (userDoc.exists && userDoc.data()!.containsKey('username')) {
             _realUsername = userDoc.data()!['username'];
           } else {
-            // Fallback: Try Auth Display Name or Email
-            _realUsername =
-                user.displayName ?? user.email?.split('@')[0] ?? "Cyclist";
+            _realUsername = user.displayName ?? user.email?.split('@')[0] ?? "Cyclist";
           }
         });
       }
     } catch (e) {
-      print("Error resolving username: $e");
+      debugPrint("Error resolving username: $e");
     }
   }
 
@@ -68,9 +95,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.85),
-      builder: (BuildContext context) {
-        return _IslandPassImageViewer(posts: posts, initialIndex: initialIndex);
-      },
+      builder: (BuildContext context) => _IslandPassImageViewer(posts: posts, initialIndex: initialIndex),
     );
   }
 
@@ -78,38 +103,15 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
 
-    // 1. INVALID LOCATION
-    if (!widget.isLocationValid) {
-      return _buildInvalidLocationScreen(primaryBlue);
-    }
-
-    // 2. CHECK POST STATUS (Live Stream)
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return _buildEmptyState(context, primaryBlue);
-
-    // If we haven't found the real username yet, wait a moment or try with default
-    final targetName = _realUsername ?? "Cyclist";
-    final currentIsland = widget.currentIsland ?? 'Naxos';
-    final twentyFourHoursAgo = DateTime.now().subtract(
-      const Duration(hours: 24),
-    );
+    if (!widget.isLocationValid) return _buildInvalidLocationScreen(primaryBlue);
+    if (FirebaseAuth.instance.currentUser == null) return _buildEmptyState(context, primaryBlue);
 
     return StreamBuilder<QuerySnapshot>(
-      // Query: Did *I* (using my real DB name) post here recently?
-      stream: FirebaseFirestore.instance
-          .collection('posts')
-          .where('username', isEqualTo: targetName)
-          .where('island', isEqualTo: currentIsland)
-          .where(
-            'timestamp',
-            isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo),
-          )
-          .snapshots(),
+      stream: _unlockCheckStream,
       builder: (context, snapshot) {
-        // Unlocked if Firestore has data OR local session has data
-        bool isUnlocked =
-            (snapshot.hasData && snapshot.data!.docs.isNotEmpty) ||
-            GlobalFeedData.posts.isNotEmpty;
+        // Pass is unlocked if Firestore has a recent post OR local session has one
+        bool isUnlocked = (snapshot.hasData && snapshot.data!.docs.isNotEmpty) || 
+                          GlobalFeedData.posts.isNotEmpty;
 
         return _buildValidIslandPass(primaryBlue, isUnlocked);
       },
@@ -130,9 +132,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20.0),
                     child: Container(
-                      width: 364,
-                      height: 650,
-                      clipBehavior: Clip.antiAlias,
+                      width: 364, height: 650,
                       decoration: ShapeDecoration(
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
@@ -143,98 +143,46 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                       child: Stack(
                         children: [
                           Positioned(
-                            left: 0,
-                            right: 0,
-                            top: 180,
-                            child: Icon(
-                              Icons.warning_amber_rounded,
-                              size: 80,
-                              color: primaryBlue,
-                            ),
+                            left: 0, right: 0, top: 180,
+                            child: Icon(Icons.warning_amber_rounded, size: 80, color: primaryBlue),
                           ),
                           Positioned(
-                            left: 49,
-                            top: 280,
+                            left: 49, top: 280,
                             child: Container(
-                              width: 265,
-                              height: 43,
+                              width: 265, height: 43,
                               decoration: ShapeDecoration(
                                 shape: RoundedRectangleBorder(
-                                  side: BorderSide(
-                                    width: 4,
-                                    color: primaryBlue,
-                                  ),
+                                  side: BorderSide(width: 4, color: primaryBlue),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                               ),
-                              child: Center(
-                                child: Text(
-                                  'Invalid Location',
-                                  style: GoogleFonts.hammersmithOne(
-                                    color: primaryBlue,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
+                              child: Center(child: Text('Invalid Location', style: GoogleFonts.hammersmithOne(color: primaryBlue, fontSize: 24, fontWeight: FontWeight.bold))),
                             ),
                           ),
                           Positioned(
-                            left: 117,
-                            top: 450,
+                            left: 117, top: 450,
                             child: GestureDetector(
-                              onTap: _isRetrying
-                                  ? null
-                                  : () async {
-                                      if (widget.onRetry != null) {
-                                        setState(() => _isRetrying = true);
-                                        await Future.delayed(
-                                          const Duration(milliseconds: 500),
-                                        );
-                                        widget.onRetry!();
-                                        if (mounted)
-                                          setState(() => _isRetrying = false);
-                                      }
-                                    },
+                              onTap: _isRetrying ? null : () async {
+                                if (widget.onRetry != null) {
+                                  setState(() => _isRetrying = true);
+                                  await Future.delayed(const Duration(milliseconds: 500));
+                                  widget.onRetry!();
+                                  if (mounted) setState(() => _isRetrying = false);
+                                }
+                              },
                               child: Container(
-                                width: 130,
-                                height: 40,
+                                width: 130, height: 40,
                                 decoration: ShapeDecoration(
-                                  color: _isRetrying
-                                      ? Colors.white
-                                      : primaryBlue,
+                                  color: _isRetrying ? Colors.white : primaryBlue,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
-                                    side: _isRetrying
-                                        ? BorderSide(
-                                            width: 2,
-                                            color: primaryBlue,
-                                          )
-                                        : BorderSide.none,
+                                    side: _isRetrying ? BorderSide(width: 2, color: primaryBlue) : BorderSide.none,
                                   ),
                                 ),
                                 child: Center(
                                   child: _isRetrying
-                                      ? SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  primaryBlue,
-                                                ),
-                                          ),
-                                        )
-                                      : Text(
-                                          'Try again?',
-                                          style: GoogleFonts.hammersmithOne(
-                                            color: _isRetrying
-                                                ? primaryBlue
-                                                : Colors.white,
-                                            fontSize: 18,
-                                          ),
-                                        ),
+                                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(primaryBlue)))
+                                    : Text('Try again?', style: GoogleFonts.hammersmithOne(color: _isRetrying ? primaryBlue : Colors.white, fontSize: 18)),
                                 ),
                               ),
                             ),
@@ -269,79 +217,42 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                 child: Column(
                   children: [
                     const SizedBox(height: 20),
-
-                    // --- GROUP CHAT BUTTON ---
                     if (isUnlocked) ...[
                       GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  GroupChatScreen(islandName: displayIsland),
-                            ),
-                          );
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(islandName: displayIsland)));
                         },
                         child: Container(
-                          height: 60,
-                          width: double.infinity,
+                          height: 60, width: double.infinity,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(30),
                             border: Border.all(color: primaryBlue, width: 1.5),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                blurRadius: 5,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
                           ),
                           child: Row(
                             children: [
                               const SizedBox(width: 10),
                               Container(
-                                width: 40,
-                                height: 40,
+                                width: 40, height: 40,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   image: DecorationImage(
-                                    image: NetworkImage(
-                                      DestinationService.getIslandImage(
-                                        displayIsland,
-                                      ),
-                                    ),
+                                    image: NetworkImage(DestinationService.getIslandImage(displayIsland)),
                                     fit: BoxFit.cover,
-                                    onError: (e, s) {},
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 15),
-                              Text(
-                                "$displayIsland Groupchat",
-                                style: GoogleFonts.hammersmithOne(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
+                              Text("$displayIsland Groupchat", style: GoogleFonts.hammersmithOne(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
                               const Spacer(),
-                              const Padding(
-                                padding: EdgeInsets.only(right: 20.0),
-                                child: Icon(
-                                  Icons.arrow_forward_ios,
-                                  size: 16,
-                                  color: Color(0xFF1269C7),
-                                ),
-                              ),
+                              const Padding(padding: EdgeInsets.only(right: 20.0), child: Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF1269C7))),
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
                     ],
-
-                    // --- FEED or LOCKED STATE ---
                     Expanded(
                       child: isUnlocked
                           ? _buildRealSocialFeed(primaryBlue, bottomPadding)
@@ -357,7 +268,6 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     );
   }
 
-  // --- LOCKED STATE ---
   Widget _buildEmptyState(BuildContext context, Color primaryBlue) {
     return Container(
       width: double.infinity,
@@ -372,171 +282,77 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
         children: [
           GestureDetector(
             onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      CameraScreen(currentIsland: widget.currentIsland),
-                ),
-              );
-              // Refresh username and state when returning
+              await Navigator.push(context, MaterialPageRoute(builder: (context) => CameraScreen(currentIsland: widget.currentIsland)));
               _resolveUsername();
             },
             child: Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: primaryBlue,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.camera_alt_rounded,
-                size: 50,
-                color: Colors.white,
-              ),
+              decoration: BoxDecoration(color: primaryBlue, borderRadius: BorderRadius.circular(20)),
+              child: const Icon(Icons.camera_alt_rounded, size: 50, color: Colors.white),
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            "Post to view",
-            style: GoogleFonts.hammersmithOne(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
+          Text("Post to view", style: GoogleFonts.hammersmithOne(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black)),
         ],
       ),
     );
   }
 
-  // --- UNLOCKED FEED ---
   Widget _buildRealSocialFeed(Color primaryBlue, double bottomPadding) {
-    final String targetIsland = widget.currentIsland ?? 'Naxos';
-
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('posts')
-          .where('island', isEqualTo: targetIsland)
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+      stream: _socialFeedStream, // Use the pre-defined stream
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator(color: primaryBlue));
         }
 
         final now = DateTime.now();
-        final docs =
-            snapshot.data?.docs.where((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              if (data['timestamp'] == null) return false;
-              final Timestamp ts = data['timestamp'];
-              return now.difference(ts.toDate()).inHours < 24;
-            }).toList() ??
-            [];
+        final docs = snapshot.data?.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['timestamp'] == null) return false;
+          final Timestamp ts = data['timestamp'];
+          return now.difference(ts.toDate()).inHours < 24;
+        }).toList() ?? [];
 
         if (docs.isEmpty) {
-          return Center(
-            child: Text(
-              "No posts in the last 24h.\nBe the first!",
-              textAlign: TextAlign.center,
-              style: GoogleFonts.hammersmithOne(),
-            ),
-          );
+          return Center(child: Text("No posts in the last 24h.\nBe the first!", textAlign: TextAlign.center, style: GoogleFonts.hammersmithOne()));
         }
 
         return GridView.builder(
           padding: EdgeInsets.only(bottom: bottomPadding, top: 10),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 0.8,
+            crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.8,
           ),
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             final String imageUrl = data['imageUrl'] ?? '';
-            // Use username from post, but default to 'Cyclist' only if missing
             final String username = data['username'] ?? 'Cyclist';
             final String? userId = data['userId'];
-
-            // Prepare posts list for expanded viewer
-            final postsList = docs
-                .map((d) => d.data() as Map<String, dynamic>)
-                .toList();
+            final postsList = docs.map((d) => d.data() as Map<String, dynamic>).toList();
 
             return GestureDetector(
               onTap: () => _showExpandedImage(postsList, index),
               child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  color: Colors.black,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 5,
-                    ),
-                  ],
-                ),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), color: Colors.black),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(15),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: Colors.grey[200],
-                          child: const Icon(
-                            Icons.broken_image,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
+                      Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey))),
                       Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
+                        bottom: 0, left: 0, right: 0,
                         child: Container(
                           height: 60,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.black.withOpacity(0.8),
-                                Colors.transparent,
-                              ],
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                            ),
-                          ),
+                          decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.black.withOpacity(0.8), Colors.transparent], begin: Alignment.bottomCenter, end: Alignment.topCenter)),
                         ),
                       ),
                       Positioned(
-                        bottom: 12,
-                        left: 12,
+                        bottom: 12, left: 12,
                         child: GestureDetector(
-                          onTap: userId != null
-                              ? () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          ProfileScreen(userId: userId),
-                                    ),
-                                  );
-                                }
-                              : null,
-                          child: Text(
-                            "@$username",
-                            style: GoogleFonts.hammersmithOne(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              decoration: TextDecoration.underline,
-                              decorationColor: Colors.white.withOpacity(0.5),
-                            ),
-                          ),
+                          onTap: userId != null ? () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileScreen(userId: userId))) : null,
+                          child: Text("@$username", style: GoogleFonts.hammersmithOne(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, decorationColor: Colors.white.withOpacity(0.5))),
                         ),
                       ),
                     ],
@@ -549,6 +365,17 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
       },
     );
   }
+
+  Widget _buildHeader(Color primaryBlue) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(width: 1.5, color: primaryBlue))),
+      child: Center(child: Text('Island Pass', style: GoogleFonts.hammersmithOne(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold))),
+    );
+  }
+}
+
 
   Widget _buildHeader(Color primaryBlue) {
     return Container(
@@ -570,7 +397,7 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
       ),
     );
   }
-}
+
 
 // Image viewer for expanded post images in Island Pass
 class _IslandPassImageViewer extends StatefulWidget {

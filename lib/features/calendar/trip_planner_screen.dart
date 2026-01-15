@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cyclago/core/trip_service.dart';
@@ -117,7 +119,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     const dayHeaders = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     for (var header in dayHeaders) {
       cells.add(
-        Container(
+        SizedBox(
           width: 38,
           height: 30,
           child: Center(
@@ -206,7 +208,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               )
             : isInRange
                 ? BoxDecoration(
-                    color: primaryBlue.withOpacity(0.2),
+                    color: primaryBlue,
                   )
                 : null,
         child: Center(
@@ -229,264 +231,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _showIslandPicker() async {
-    const primaryBlue = Color(0xFF1269C7);
-    
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: 300,
-            height: 410,
-            clipBehavior: Clip.antiAlias,
-            decoration: ShapeDecoration(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                side: const BorderSide(
-                  width: 3,
-                  color: Color(0xFF1269C7),
-                ),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              shadows: const [
-                BoxShadow(
-                  color: Color(0x3F000000),
-                  blurRadius: 4,
-                  offset: Offset(0, 4),
-                  spreadRadius: 0,
-                )
-              ],
-            ),
-            child: Stack(
-              children: [
-                // Trip name input field
-                Positioned(
-                  left: 15,
-                  top: 16,
-                  child: Container(
-                    width: 270,
-                    height: 50,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                          width: 1,
-                          color: Color(0xFF1269C7),
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          left: 12,
-                          top: 13,
-                          child: SizedBox(
-                            width: 183,
-                            height: 24,
-                            child: Text(
-                              'Trip name...',
-                              style: const TextStyle(
-                                color: Color(0xFF737373),
-                                fontSize: 20,
-                                fontFamily: 'Hammersmith One',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Island name header + list container
-                Positioned(
-                  left: 15,
-                  top: 79,
-                  child: Container(
-                    width: 270,
-                    height: 200,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                          width: 1,
-                          color: Color(0xFF1269C7),
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        // Island name header
-                        Container(
-                          width: 270,
-                          height: 50,
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(width: 1, color: primaryBlue),
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              const Positioned(
-                                left: 5,
-                                top: 10,
-                                child: Icon(Icons.location_on_outlined, color: primaryBlue, size: 30),
-                              ),
-                              Positioned(
-                                left: 39,
-                                top: 13,
-                                child: SizedBox(
-                                  width: 183,
-                                  height: 24,
-                                  child: Text(
-                                    'Island name',
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 20,
-                                      fontFamily: 'Hammersmith One',
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const Positioned(
-                                left: 232,
-                                top: 10,
-                                child: Icon(Icons.keyboard_arrow_down, color: primaryBlue, size: 30),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Scrollable island list
-                        Expanded(
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            itemCount: _islands.length,
-                            itemBuilder: (context, index) {
-                              final island = _islands[index];
-                              return GestureDetector(
-                                onTap: () => Navigator.pop(context, island),
-                                child: Container(
-                                  width: 270,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: index < _islands.length - 1
-                                          ? const BorderSide(width: 1, color: primaryBlue)
-                                          : BorderSide.none,
-                                    ),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      Positioned(
-                                        left: 16,
-                                        top: 13,
-                                        child: SizedBox(
-                                          width: 103,
-                                          height: 24,
-                                          child: Text(
-                                            island,
-                                            style: const TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 20,
-                                              fontFamily: 'Hammersmith One',
-                                              fontWeight: FontWeight.w400,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Date range field
-                Positioned(
-                  left: 15,
-                  top: 292,
-                  child: Container(
-                    width: 270,
-                    height: 50,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                          width: 1,
-                          color: Color(0xFF1269C7),
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        const Positioned(
-                          left: 7,
-                          top: 10,
-                          child: Icon(Icons.calendar_today_outlined, color: primaryBlue, size: 30),
-                        ),
-                        Positioned(
-                          left: 41,
-                          top: 13,
-                          child: SizedBox(
-                            width: 220,
-                            height: 24,
-                            child: Text(
-                              '__/__/__ - __/__/__',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 20,
-                                fontFamily: 'Hammersmith One',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Submit button
-                Positioned(
-                  left: 130,
-                  top: 355,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFF1269C7),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                    ),
-                    child: const Icon(Icons.check, color: Colors.white, size: 24),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    
-    if (selected != null) {
-      setState(() => _selectedIsland = selected);
-    }
   }
 
   @override

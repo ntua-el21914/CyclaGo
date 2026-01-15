@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -5,7 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cyclago/core/destination_service.dart';
 import 'package:cyclago/core/trip_service.dart';
 import 'trip_planner_screen.dart';
-import 'trip_map_screen.dart';
 
 class TripViewScreen extends StatefulWidget {
   final String tripId;
@@ -105,15 +106,6 @@ class _TripViewScreenState extends State<TripViewScreen> {
   
   int get _selectedCount => _currentSelectedIds.length;
   
-  void _removeSelection(String id) {
-    setState(() {
-      final key = _selectionKey;
-      if (_selectedSpots.containsKey(key)) {
-        _selectedSpots[key]!.remove(id);
-      }
-    });
-    _saveSelections();
-  }
   
   void _onReorder(int oldIndex, int newIndex) {
     if (oldIndex >= _selectedCount || newIndex > _selectedCount) return;

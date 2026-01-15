@@ -68,10 +68,6 @@ class _MapScreenState extends State<MapScreen> {
   // Island centers for map positioning
   static Map<String, LatLng> get _islandCenters => DestinationService.islandCenters;
   
-  LatLng get _currentCenter {
-    if (_selectedIsland == null) return const LatLng(37.05, 25.45); // Default Naxos
-    return _islandCenters[_selectedIsland!.toLowerCase()] ?? const LatLng(37.05, 25.45);
-  }
   
   List<Destination> get _currentDestinations {
     switch (_selectedCategory) {

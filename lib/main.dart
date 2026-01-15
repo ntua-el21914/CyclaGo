@@ -113,10 +113,13 @@ class _MainScaffoldState extends State<MainScaffold> {
         return;
       }
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+          Position position = await Geolocator.getCurrentPosition(
+        locationSettings: AndroidSettings(
+          accuracy: LocationAccuracy.medium, // Deloaded for performance
+          distanceFilter: 50,                // Prevents spamming the thread
+        ),
+        timeLimit: const Duration(seconds: 5), // Crash prevention
       );
-
       // Check if user is on any supported island
       final nearestIsland = DestinationService.findNearestIsland(
         position.latitude,
@@ -133,7 +136,7 @@ class _MainScaffoldState extends State<MainScaffold> {
         });
       }
     } catch (e) {
-      print("Location Error: $e");
+  debugPrint("Location Timeout or Error: $e");
       if (mounted) setState(() => _isLoadingLocation = false);
     }
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,42 +22,60 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
 
   // --- REGISTER LOGIC ---
+// --- REGISTER LOGIC ---
   Future<void> _handleRegister() async {
+    final String username = _usernameController.text.trim();
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
+
     // 1. Basic Validation
-    if (_usernameController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill in all fields")),
-      );
+    if (username.isEmpty || email.isEmpty || password.isEmpty) {
+      _showError("Please fill in all fields");
+      return;
+    }
+
+    // --- ONE WORD VALIDATION ---
+    // This regex ensures no spaces and only alphanumeric/underscores
+    final RegExp usernameRegex = RegExp(r"^[a-zA-Z0-9_]+$");
+    if (!usernameRegex.hasMatch(username)) {
+      _showError("Username must be one word (no spaces or special characters)");
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // 2. Create User in Firebase Authentication
+      // 2. CHECK IF USERNAME IS ALREADY TAKEN
+      final usernameDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .get();
+
+      if (usernameDoc.docs.isNotEmpty) {
+        _showError("Username is already taken");
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // 3. Create User in Firebase Authentication
       UserCredential userCredential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
-      // 3. Save Username and extra info to Firestore Database
-      // This is crucial for your "Login with Username" feature to work later!
+      // 4. Save to Firestore
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(userCredential.user!.uid) // Use the same ID as Auth
+          .doc(userCredential.user!.uid)
           .set({
         'uid': userCredential.user!.uid,
-        'username': _usernameController.text.trim(),
-        'email': _emailController.text.trim(), 
+        'username': username, // Saved as one word
+        'email': email,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
-        print("✅ Registration Successful");
-        // Navigate to Home
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainScaffold()),
@@ -64,27 +83,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } on FirebaseAuthException catch (e) {
       String message = "Registration failed";
-      if (e.code == 'weak-password') {
-        message = 'The password provided is too weak.';
-      } else if (e.code == 'email-already-in-use') {
-        message = 'The account already exists for that email.';
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: Colors.red),
-        );
-      }
+      if (e.code == 'weak-password') message = 'The password is too weak.';
+      if (e.code == 'email-already-in-use') message = 'Email already in use.';
+      _showError(message);
     } catch (e) {
-      print(e);
+      debugPrint("Error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // Small helper to show snacks
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
-    const Color placeholderGrey = Color(0xFFD0D0D0);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -233,6 +250,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: Center(
         child: TextFormField(
+          inputFormatters: [
+            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+          ],
           controller: controller,
           obscureText: isPassword,
           keyboardType: inputType,

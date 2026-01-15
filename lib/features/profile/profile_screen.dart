@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'settings_screen.dart';
+import '../../core/global_data.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId; // Optional: if provided, view this user's profile (read-only)
@@ -13,6 +14,7 @@ class ProfileScreen extends StatefulWidget {
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
+
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String _displayName = "Traveller";
@@ -30,16 +32,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _fetchUserData();
   }
 
-  Future<void> _fetchUserData() async {
+Future<void> _fetchUserData({bool forceRefresh = false}) async {
     String? targetUserId = widget.userId;
-    
-    // If no userId provided, use current user
-    if (targetUserId == null) {
+    bool isOwnProfile = targetUserId == null;
+
+    // --- 1. CHECK CACHE FIRST (Only for own profile) ---
+    if (isOwnProfile && ProfileCache.isCacheValid && !forceRefresh) {
+      setState(() {
+        _displayName = ProfileCache.displayName ?? "Traveller";
+        _bio = ProfileCache.bio ?? "";
+        _profilePictureUrl = ProfileCache.profilePictureUrl;
+        _postsByIsland = ProfileCache.postsByIsland;
+        _postCount = ProfileCache.postCount;
+      });
+      return; // Stop here, use cached data
+    }
+
+    // --- 2. FETCH FROM FIRESTORE ---
+    if (isOwnProfile) {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
       targetUserId = user.uid;
-      
-      // Fetch current user profile data by email
+
       final querySnapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: user.email)
@@ -47,16 +61,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (querySnapshot.docs.isNotEmpty) {
         final userData = querySnapshot.docs.first.data();
-        if (mounted) {
-          setState(() {
-            _displayName = userData['username'] ?? userData['email'] ?? "Traveller";
-            _bio = userData['bio'] ?? "";
-            _profilePictureUrl = userData['profilepicture'];
-          });
-        }
+        _displayName = userData['username'] ?? userData['email'] ?? "Traveller";
+        _bio = userData['bio'] ?? "";
+        _profilePictureUrl = userData['profilepicture'];
       }
     } else {
-      // Fetch other user's profile data by userId
+      // Fetch other user's profile data
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(targetUserId)
@@ -64,17 +74,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (userDoc.exists) {
         final userData = userDoc.data()!;
-        if (mounted) {
-          setState(() {
-            _displayName = userData['username'] ?? "Traveller";
-            _bio = userData['bio'] ?? "";
-            _profilePictureUrl = userData['profilepicture'];
-          });
-        }
+        _displayName = userData['username'] ?? "Traveller";
+        _bio = userData['bio'] ?? "";
+        _profilePictureUrl = userData['profilepicture'];
       }
     }
 
-    // Fetch user's posts and group by island
+    // Fetch user's posts
     try {
       final postsSnapshot = await FirebaseFirestore.instance
           .collection('posts')
@@ -94,6 +100,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _postsByIsland = groupedPosts;
           _postCount = postsSnapshot.docs.length;
         });
+
+        // --- 3. SAVE TO CACHE (If own profile) ---
+        if (isOwnProfile) {
+          ProfileCache.displayName = _displayName;
+          ProfileCache.bio = _bio;
+          ProfileCache.profilePictureUrl = _profilePictureUrl;
+          ProfileCache.postsByIsland = _postsByIsland;
+          ProfileCache.postCount = _postCount;
+          ProfileCache.lastFetchTime = DateTime.now();
+        }
       }
     } catch (e) {
       debugPrint('Error fetching posts: $e');
@@ -384,11 +400,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       width: 2,
                                     ),
                                     image: _profilePictureUrl != null
-                                        ? DecorationImage(
-                                            image: NetworkImage(_profilePictureUrl!),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
+                                    ? DecorationImage(
+                                        image: NetworkImage(_profilePictureUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
                                   ),
                                   child: _profilePictureUrl == null
                                       ? const Icon(

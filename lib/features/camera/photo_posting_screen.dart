@@ -54,7 +54,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
           }
         } catch (e) {
           // If compound query fails (e.g., missing index), fall back to client-side filtering
-          print('Compound query failed, using client-side filtering: $e');
           final allPostsSnapshot = await FirebaseFirestore.instance
               .collection('posts')
               .where('userId', isEqualTo: user.uid)
@@ -88,7 +87,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
         ..fields['upload_preset'] = uploadPreset
         ..files.add(await http.MultipartFile.fromPath('file', widget.imagePath));
 
-      print("📤 Uploading...");
       final response = await request.send();
 
       if (response.statusCode == 200) {
@@ -116,12 +114,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
               }
             }
           } catch (e) {
-            print("⚠️ Error fetching username: $e");
           }
         }
 
         // 3. Save Post with the REAL Username
-        final docRef = await FirebaseFirestore.instance.collection('posts').add({
+        await FirebaseFirestore.instance.collection('posts').add({
           'imageUrl': uploadedUrl,
           'username': finalUsername, // Saves "Admin" or whatever is in DB
           'userId': user?.uid ?? '',
@@ -150,7 +147,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
         throw Exception("Upload failed");
       }
     } catch (e) {
-      print("❌ Error: $e");
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       if (mounted) setState(() => _isUploading = false);

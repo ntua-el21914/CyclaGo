@@ -14,9 +14,7 @@ class PreviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Colors from your code
     const Color primaryBlue = Color(0xFF1269C7);
-    const Color greyBackground = Color(
-      0xFFF6F9FC,
-    ); // Light grey from your prev screens
+// Light grey from your prev screens
 
     return Scaffold(
       backgroundColor: Colors.white,
