@@ -199,7 +199,8 @@ Future<void> _fetchUserData({bool forceRefresh = false}) async {
             await doc.reference.delete();
           }
 
-          // Refresh the posts
+          // Clear cache and refresh the posts
+          ProfileCache.clear();
           await _fetchUserData();
 
           if (mounted) {
@@ -318,16 +319,22 @@ Future<void> _fetchUserData({bool forceRefresh = false}) async {
 
   @override
   Widget build(BuildContext context) {
+    const Color primaryBlue = Color(0xFF1269C7);
+    
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: SizedBox(
-                width: constraints.maxWidth,
-                child: Column(
+            return RefreshIndicator(
+              color: primaryBlue,
+              onRefresh: () => _fetchUserData(forceRefresh: true),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Profile Header
@@ -683,6 +690,7 @@ Future<void> _fetchUserData({bool forceRefresh = false}) async {
                   ],
                 ),
               ),
+            ),
             );
           },
         ),

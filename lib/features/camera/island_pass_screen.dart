@@ -91,6 +91,29 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
     }
   }
 
+  Future<void> _refreshFeed() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final targetIsland = widget.currentIsland ?? 'Naxos';
+    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+
+    setState(() {
+      _unlockCheckStream = FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: user?.uid)
+          .where('island', isEqualTo: targetIsland)
+          .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
+          .snapshots();
+
+      _socialFeedStream = FirebaseFirestore.instance
+          .collection('posts')
+          .where('island', isEqualTo: targetIsland)
+          .orderBy('timestamp', descending: true)
+          .snapshots();
+    });
+
+    await _resolveUsername();
+  }
+
   void _showExpandedImage(List<Map<String, dynamic>> posts, int initialIndex) {
     showDialog(
       context: context,
@@ -212,53 +235,61 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
           children: [
             _buildHeader(primaryBlue),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    if (isUnlocked) ...[
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(islandName: displayIsland)));
-                        },
-                        child: Container(
-                          height: 60, width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: primaryBlue, width: 1.5),
-                            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
-                          ),
-                          child: Row(
-                            children: [
-                              const SizedBox(width: 10),
-                              Container(
-                                width: 40, height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  image: DecorationImage(
-                                    image: NetworkImage(DestinationService.getIslandImage(displayIsland)),
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
+              child: RefreshIndicator(
+                color: primaryBlue,
+                onRefresh: _refreshFeed,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        if (isUnlocked) ...[
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(islandName: displayIsland)));
+                            },
+                            child: Container(
+                              height: 60, width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(color: primaryBlue, width: 1.5),
+                                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5, offset: const Offset(0, 3))],
                               ),
-                              const SizedBox(width: 15),
-                              Text("$displayIsland Groupchat", style: GoogleFonts.hammersmithOne(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-                              const Spacer(),
-                              const Padding(padding: EdgeInsets.only(right: 20.0), child: Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF1269C7))),
-                            ],
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    width: 40, height: 40,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      image: DecorationImage(
+                                        image: NetworkImage(DestinationService.getIslandImage(displayIsland)),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 15),
+                                  Text("$displayIsland Groupchat", style: GoogleFonts.hammersmithOne(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+                                  const Spacer(),
+                                  const Padding(padding: EdgeInsets.only(right: 20.0), child: Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF1269C7))),
+                                ],
+                              ),
+                            ),
                           ),
+                          const SizedBox(height: 20),
+                        ],
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height - 250,
+                          child: isUnlocked
+                              ? _buildRealSocialFeed(primaryBlue, bottomPadding)
+                              : _buildEmptyState(context, primaryBlue),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                    Expanded(
-                      child: isUnlocked
-                          ? _buildRealSocialFeed(primaryBlue, bottomPadding)
-                          : _buildEmptyState(context, primaryBlue),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

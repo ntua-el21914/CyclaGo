@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cyclago/core/global_data.dart';
+import 'package:cyclago/core/global_data.dart'; // Contains GlobalFeedData and ProfileCache
 import '../../main.dart'; // Import MainScaffold so we can navigate to it!
 
 class VerificationScreen extends StatefulWidget {
@@ -131,8 +131,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
         await Future.delayed(const Duration(seconds: 1));
 
         if (mounted) {
-          // 4. Clear local data (not needed anymore since we use Firestore)
+          // 4. Clear local data and profile cache to force refresh
           GlobalFeedData.posts.clear();
+          ProfileCache.clear(); // Force Profile screen to refresh on next visit
 
           // 5. Navigate to Main App (Tab 1 = Island Pass)
           Navigator.pushAndRemoveUntil(
