@@ -117,7 +117,7 @@ class _MainScaffoldState extends State<MainScaffold> {
       }
 
       Position position = await Geolocator.getCurrentPosition(
-        locationSettings: AndroidSettings(accuracy: LocationAccuracy.medium),
+        locationSettings: AndroidSettings(accuracy: LocationAccuracy.high),
         timeLimit: const Duration(seconds: 5), // <--- CRITICAL FIX
       );
 
