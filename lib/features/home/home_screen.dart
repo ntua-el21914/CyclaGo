@@ -22,7 +22,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _currentIslandName;
 
   late Stream<QuerySnapshot> _eventsStream;
-  // This will now be handled inside the build to remain island-specific
   Stream<QuerySnapshot>? _islandSpecificUnlockStream;
 
   @override
@@ -53,18 +52,25 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // --- LOGIC: CREATE STREAM ONLY FOR CURRENT ISLAND ---
   void _updateUnlockStream() {
     final user = FirebaseAuth.instance.currentUser;
-    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24));
+    final twentyFourHoursAgo = DateTime.now().subtract(
+      const Duration(hours: 24),
+    );
 
     if (user != null && _currentIslandName != null) {
       setState(() {
         _islandSpecificUnlockStream = FirebaseFirestore.instance
             .collection('posts')
             .where('userId', isEqualTo: user.uid)
-            .where('island', isEqualTo: _currentIslandName) // CRITICAL FILTER
-            .where('timestamp', isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo))
+            .where(
+              'island',
+              isEqualTo: _currentIslandName,
+            ) // Island specific check
+            .where(
+              'timestamp',
+              isGreaterThan: Timestamp.fromDate(twentyFourHoursAgo),
+            )
             .snapshots();
       });
     }
@@ -77,7 +83,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchUserName() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (doc.exists && mounted) {
         setState(() => _displayName = doc.data()?['username'] ?? 'Cyclist');
       }
@@ -91,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
       all.removeWhere((i) => i.toLowerCase() == currentIsland.toLowerCase());
       all.insert(0, currentIsland);
       _currentIslandName = currentIsland;
-      _updateUnlockStream(); // Update the lock check whenever the island changes
+      _updateUnlockStream();
     }
     if (mounted) setState(() => _selectedIslands = all.take(4).toList());
   }
@@ -102,7 +111,10 @@ class _HomeScreenState extends State<HomeScreen> {
         locationSettings: AndroidSettings(accuracy: LocationAccuracy.medium),
         timeLimit: const Duration(seconds: 5),
       );
-      String? island = DestinationService.findNearestIsland(position.latitude, position.longitude);
+      String? island = DestinationService.findNearestIsland(
+        position.latitude,
+        position.longitude,
+      );
       if (island != null && mounted) {
         _selectRandomIslands(currentIsland: island);
         if (_pageController.hasClients) _pageController.jumpToPage(0);
@@ -112,7 +124,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _shareEventToChat(String title, String subtitle, bool isUnlocked) async {
+  Future<void> _shareEventToChat(
+    String title,
+    String subtitle,
+    bool isUnlocked,
+  ) async {
     if (!isUnlocked || _currentIslandName == null) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -123,11 +139,11 @@ class _HomeScreenState extends State<HomeScreen> {
           .doc(_currentIslandName!.toLowerCase())
           .collection('messages')
           .add({
-        'text': "📢 Event: $title ($subtitle)",
-        'senderId': user.uid,
-        'senderName': _displayName,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+            'text': "📢 Event: $title ($subtitle)",
+            'senderId': user.uid,
+            'senderName': _displayName,
+            'timestamp': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
       debugPrint("Sharing failed: $e");
     }
@@ -138,27 +154,38 @@ class _HomeScreenState extends State<HomeScreen> {
     const Color primaryBlue = Color(0xFF1269C7);
 
     return StreamBuilder<QuerySnapshot>(
-      // Listen to the island-specific stream
       stream: _islandSpecificUnlockStream,
       builder: (context, unlockSnapshot) {
-        // Master Logic: Locked if NO post on THIS island in 24h
-        bool isUnlocked = (unlockSnapshot.hasData && unlockSnapshot.data!.docs.isNotEmpty);
+        // Master lock based on island specific posts
+        bool isUnlocked =
+            (unlockSnapshot.hasData && unlockSnapshot.data!.docs.isNotEmpty);
 
         return Scaffold(
           backgroundColor: const Color(0xFFF6F9FC),
           body: SafeArea(
             bottom: false,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 130),
+              padding: const EdgeInsets.only(
+                top: 20,
+                left: 20,
+                right: 20,
+                bottom: 130,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: GoogleFonts.hammersmithOne(fontSize: 24, color: Colors.black),
+                      style: GoogleFonts.hammersmithOne(
+                        fontSize: 24,
+                        color: Colors.black,
+                      ),
                       children: [
                         const TextSpan(text: 'Hello,\n'),
-                        TextSpan(text: _displayName, style: const TextStyle(fontSize: 32)),
+                        TextSpan(
+                          text: _displayName,
+                          style: const TextStyle(fontSize: 32),
+                        ),
                       ],
                     ),
                   ),
@@ -168,13 +195,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: PageView.builder(
                       controller: _pageController,
                       itemCount: _selectedIslands.length,
-                      itemBuilder: (context, index) => _buildIslandCard(_selectedIslands[index], primaryBlue),
+                      itemBuilder: (context, index) => _buildIslandCard(
+                        _selectedIslands[index],
+                        primaryBlue,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
                   _buildPageIndicator(primaryBlue),
                   const SizedBox(height: 30),
-                  _buildFirebaseSection("Events", _eventsStream, primaryBlue, true, isUnlocked),
+                  _buildFirebaseSection(
+                    "Events",
+                    _eventsStream,
+                    primaryBlue,
+                    true,
+                    isUnlocked,
+                  ),
                   const SizedBox(height: 30),
                   _buildDynamicChallenges(primaryBlue),
                 ],
@@ -186,7 +222,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFirebaseSection(String title, Stream<QuerySnapshot> stream, Color blue, bool isEvent, bool isPassUnlocked) {
+  Widget _buildFirebaseSection(
+    String title,
+    Stream<QuerySnapshot> stream,
+    Color blue,
+    bool isEvent,
+    bool isPassUnlocked,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
@@ -194,17 +236,27 @@ class _HomeScreenState extends State<HomeScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
         border: Border.all(color: blue, width: 2),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: GoogleFonts.hammersmithOne(color: blue, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: GoogleFonts.hammersmithOne(
+              color: blue,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 15),
           StreamBuilder<QuerySnapshot>(
             stream: stream,
             builder: (context, snapshot) {
-              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              if (!snapshot.hasData)
+                return const Center(child: CircularProgressIndicator());
               return Column(
                 children: snapshot.data!.docs.map((doc) {
                   final data = doc.data() as Map<String, dynamic>;
@@ -219,7 +271,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: _getIconData(data['icon'] ?? ''),
                       isLocked: itemLocked,
                       isFarAway: isFarAway,
-                      onLongPress: () => _shareEventToChat(data['title'], data['subtitle'], isPassUnlocked),
+                      onLongPress: () => _shareEventToChat(
+                        data['title'],
+                        data['subtitle'],
+                        isPassUnlocked,
+                      ),
                     ),
                   );
                 }).toList(),
@@ -236,7 +292,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (user == null) return const SizedBox.shrink();
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('posts').where('userId', isEqualTo: user.uid).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: user.uid)
+          .snapshots(),
       builder: (context, snapshot) {
         int uniqueIslands = 0;
         int totalPosts = 0;
@@ -254,7 +313,8 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final int islandBase = 5;
-        final int islandTarget = ((uniqueIslands ~/ islandBase) + 1) * islandBase;
+        final int islandTarget =
+            ((uniqueIslands ~/ islandBase) + 1) * islandBase;
         final int postBase = 10;
         final int postTarget = ((totalPosts ~/ postBase) + 1) * postBase;
 
@@ -265,16 +325,35 @@ class _HomeScreenState extends State<HomeScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(25),
             border: Border.all(color: blue, width: 2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Challenges', style: GoogleFonts.hammersmithOne(color: blue, fontSize: 28, fontWeight: FontWeight.bold)),
+              Text(
+                'Challenges',
+                style: GoogleFonts.hammersmithOne(
+                  color: blue,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 15),
-              _ChallengeCard(title: 'Visit $islandTarget Islands', progress: uniqueIslands, target: islandTarget, icon: Icons.flag),
+              _ChallengeCard(
+                title: 'Visit $islandTarget Islands',
+                progress: uniqueIslands,
+                target: islandTarget,
+                icon: Icons.flag,
+              ),
               const SizedBox(height: 12),
-              _ChallengeCard(title: 'Make $postTarget Posts', progress: totalPosts, target: postTarget, icon: Icons.camera_enhance),
+              _ChallengeCard(
+                title: 'Make $postTarget Posts',
+                progress: totalPosts,
+                target: postTarget,
+                icon: Icons.camera_enhance,
+              ),
             ],
           ),
         );
@@ -286,7 +365,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final imageUrl = DestinationService.islandImages[name.toLowerCase()] ?? '';
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 5),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), color: Colors.grey[200]),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        color: Colors.grey[200],
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
         child: Stack(
@@ -297,7 +379,14 @@ class _HomeScreenState extends State<HomeScreen> {
             Positioned(
               top: 20,
               left: 20,
-              child: Text(name, style: GoogleFonts.hammersmithOne(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+              child: Text(
+                name,
+                style: GoogleFonts.hammersmithOne(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -308,26 +397,44 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPageIndicator(Color blue) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_selectedIslands.length, (index) => Container(
-        width: 8, height: 8, margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(shape: BoxShape.circle, color: index == _currentPage.round() ? blue : Colors.grey.withOpacity(0.3)),
-      )),
+      children: List.generate(
+        _selectedIslands.length,
+        (index) => Container(
+          width: 8,
+          height: 8,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: index == _currentPage.round()
+                ? blue
+                : Colors.grey.withOpacity(0.3),
+          ),
+        ),
+      ),
     );
   }
 
   IconData _getIconData(String name) {
     switch (name) {
-      case 'beach': return Icons.beach_access;
-      case 'music': return Icons.music_note;
-      case 'scuba': return Icons.scuba_diving;
-      case 'flag': return Icons.flag;
-      case 'camera': return Icons.camera_enhance;
-      case 'restaurant': return Icons.restaurant;
-      default: return Icons.star_border;
+      case 'beach':
+        return Icons.beach_access;
+      case 'music':
+        return Icons.music_note;
+      case 'scuba':
+        return Icons.scuba_diving;
+      case 'flag':
+        return Icons.flag;
+      case 'camera':
+        return Icons.camera_enhance;
+      case 'restaurant':
+        return Icons.restaurant;
+      default:
+        return Icons.star_border;
     }
   }
 }
 
+// --- ANIMATED CARD (RESTORED & IMPROVED GREY STATE) ---
 class _InfoCard extends StatefulWidget {
   final String title;
   final String subtitle;
@@ -362,7 +469,7 @@ class _InfoCardState extends State<_InfoCard> {
       Future.delayed(const Duration(milliseconds: 2000), () {
         if (mounted) setState(() => _showFarAwayError = false);
       });
-      return; 
+      return;
     }
 
     if (widget.isLocked) {
@@ -371,7 +478,7 @@ class _InfoCardState extends State<_InfoCard> {
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) setState(() => _showLockedError = false);
       });
-      return; 
+      return;
     }
 
     widget.onLongPress();
@@ -385,7 +492,7 @@ class _InfoCardState extends State<_InfoCard> {
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
     const Color errorRed = Colors.redAccent;
-    const Color lockedGrey = Color(0xFFBDBDBD);
+    const Color lockedGrey = Color(0xFFBDBDBD); // Standard disabled grey
 
     String displayText = widget.title;
     if (_showFarAwayError) displayText = "You are far from the Cyclades!";
@@ -394,14 +501,17 @@ class _InfoCardState extends State<_InfoCard> {
 
     bool hasActiveError = _showFarAwayError || _showLockedError;
 
+    // 1. Background Color
     Color bgColor = Colors.white;
     if (_isJustShared) bgColor = primaryBlue;
     if (hasActiveError) bgColor = errorRed;
 
+    // 2. Content Color (Text/Icons)
     Color contentColor = primaryBlue;
-    if (widget.isLocked) contentColor = lockedGrey;
+    if (widget.isLocked) contentColor = lockedGrey; // Turn grey when locked
     if (_isJustShared || hasActiveError) contentColor = Colors.white;
 
+    // 3. Border Color
     Color borderColor = widget.isLocked ? lockedGrey : primaryBlue;
     if (_isJustShared || hasActiveError) borderColor = Colors.transparent;
 
@@ -426,7 +536,9 @@ class _InfoCardState extends State<_InfoCard> {
                 style: GoogleFonts.hammersmithOne(
                   color: contentColor,
                   fontSize: _showFarAwayError ? 13 : 16,
-                  fontWeight: (_isJustShared || hasActiveError) ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: (_isJustShared || hasActiveError)
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -434,14 +546,26 @@ class _InfoCardState extends State<_InfoCard> {
             if (!_isJustShared && !hasActiveError)
               Row(
                 children: [
-                  Text(widget.subtitle, style: GoogleFonts.hammersmithOne(color: contentColor, fontSize: 13)),
+                  Text(
+                    widget.subtitle,
+                    style: GoogleFonts.hammersmithOne(
+                      color: contentColor,
+                      fontSize: 13,
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  Icon(widget.isLocked ? Icons.lock_outline : widget.icon, size: 18, color: contentColor),
+                  Icon(
+                    widget.isLocked ? Icons.lock_outline : widget.icon,
+                    size: 18,
+                    color: contentColor,
+                  ),
                 ],
               )
             else
               Icon(
-                hasActiveError ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                hasActiveError
+                    ? Icons.warning_amber_rounded
+                    : Icons.check_circle_outline,
                 color: Colors.white,
                 size: 20,
               ),
@@ -452,6 +576,7 @@ class _InfoCardState extends State<_InfoCard> {
   }
 }
 
+// DO NOT REMOVE: Restored Challenge Card
 class _ChallengeCard extends StatelessWidget {
   final String title;
   final int progress;
@@ -486,15 +611,28 @@ class _ChallengeCard extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: GoogleFonts.hammersmithOne(color: contentColor, fontSize: 16),
+              style: GoogleFonts.hammersmithOne(
+                color: contentColor,
+                fontSize: 16,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Row(
             children: [
-              Text('$progress/$target', style: GoogleFonts.hammersmithOne(color: contentColor, fontSize: 13)),
+              Text(
+                '$progress/$target',
+                style: GoogleFonts.hammersmithOne(
+                  color: contentColor,
+                  fontSize: 13,
+                ),
+              ),
               const SizedBox(width: 10),
-              Icon(isCompleted ? Icons.check_circle : icon, size: 18, color: contentColor),
+              Icon(
+                isCompleted ? Icons.check_circle : icon,
+                size: 18,
+                color: contentColor,
+              ),
             ],
           ),
         ],

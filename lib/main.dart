@@ -53,9 +53,7 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -82,9 +80,9 @@ class MainScaffold extends StatefulWidget {
 class _MainScaffoldState extends State<MainScaffold> {
   late int _selectedIndex;
   bool _isNavBarVisible = true;
-  
+
   // --- LOCATION STATE ---
-  bool _isLocationValid = false; 
+  bool _isLocationValid = false;
   bool _isLoadingLocation = true;
   double? _userLat;
   double? _userLng;
@@ -94,7 +92,12 @@ class _MainScaffoldState extends State<MainScaffold> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
-    _checkLocationOnLogin(); // <--- Check immediately
+
+    // DELOAD FIX: Wait 100ms for the app to finish drawing the
+    // first frame before triggering the heavy GPS hardware.
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) _checkLocationOnLogin();
+    });
   }
 
   Future<void> _checkLocationOnLogin() async {
@@ -107,36 +110,32 @@ class _MainScaffoldState extends State<MainScaffold> {
           return;
         }
       }
-      
+
       if (permission == LocationPermission.deniedForever) {
         setState(() => _isLoadingLocation = false);
         return;
       }
 
-          Position position = await Geolocator.getCurrentPosition(
-        locationSettings: AndroidSettings(
-          accuracy: LocationAccuracy.medium, // Deloaded for performance
-          distanceFilter: 50,                // Prevents spamming the thread
-        ),
-        timeLimit: const Duration(seconds: 5), // Crash prevention
-      );
-      // Check if user is on any supported island
-      final nearestIsland = DestinationService.findNearestIsland(
-        position.latitude,
-        position.longitude,
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: AndroidSettings(accuracy: LocationAccuracy.medium),
+        timeLimit: const Duration(seconds: 5), // <--- CRITICAL FIX
       );
 
       if (mounted) {
         setState(() {
           _userLat = position.latitude;
           _userLng = position.longitude;
-          _currentIsland = nearestIsland;
-          _isLocationValid = nearestIsland != null;
+          _currentIsland = DestinationService.findNearestIsland(
+            position.latitude,
+            position.longitude,
+          );
+          _isLocationValid = _currentIsland != null;
           _isLoadingLocation = false;
         });
       }
     } catch (e) {
-  debugPrint("Location Timeout or Error: $e");
+      debugPrint("Location Timeout: $e");
+      // Stop the loading spinner even if GPS fails
       if (mounted) setState(() => _isLoadingLocation = false);
     }
   }
@@ -155,14 +154,18 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget build(BuildContext context) {
     // Check if user has posted (unlocked Island Pass)
     final bool hasPosted = GlobalFeedData.posts.isNotEmpty;
-    
+
     final List<Widget> screens = [
       const HomeScreen(),
       // PASS THE LOCATION STATUS HERE
-      IslandPassScreen(isLocationValid: _isLocationValid, onRetry: _checkLocationOnLogin, currentIsland: _currentIsland), 
+      IslandPassScreen(
+        isLocationValid: _isLocationValid,
+        onRetry: _checkLocationOnLogin,
+        currentIsland: _currentIsland,
+      ),
       MapScreen(
-        onToggleNavBar: _toggleNavBar, 
-        userLat: _userLat, 
+        onToggleNavBar: _toggleNavBar,
+        userLat: _userLat,
         userLng: _userLng,
         hasPosted: hasPosted,
         onSwitchTab: _onItemTapped,
@@ -175,12 +178,12 @@ class _MainScaffoldState extends State<MainScaffold> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9FC),
       extendBody: true,
-      bottomNavigationBar: _isNavBarVisible 
+      bottomNavigationBar: _isNavBarVisible
           ? CustomNavBar(selectedIndex: _selectedIndex, onTap: _onItemTapped)
           : null,
       // If still loading GPS, show spinner, otherwise show screen
-      body: _isLoadingLocation 
-          ? const Center(child: CircularProgressIndicator()) 
+      body: _isLoadingLocation
+          ? const Center(child: CircularProgressIndicator())
           : screens[_selectedIndex],
     );
   }
@@ -203,7 +206,7 @@ class CustomNavBar extends StatelessWidget {
     bool isMapSelected = selectedIndex == 2;
 
     return SizedBox(
-      height: 110, 
+      height: 110,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
@@ -220,22 +223,42 @@ class CustomNavBar extends StatelessWidget {
                   color: Color(0x3F000000),
                   blurRadius: 4,
                   offset: Offset(0, 4),
-                )
+                ),
               ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _NavBarItem(icon: Icons.home_filled, index: 0, selectedIndex: selectedIndex, onTap: onTap),
-                _NavBarItem(icon: Icons.camera_alt_rounded, index: 1, selectedIndex: selectedIndex, onTap: onTap),
-                const SizedBox(width: 60), 
-                _NavBarItem(icon: Icons.calendar_today_rounded, index: 3, selectedIndex: selectedIndex, onTap: onTap),
-                _NavBarItem(icon: Icons.person_rounded, index: 4, selectedIndex: selectedIndex, onTap: onTap),
+                _NavBarItem(
+                  icon: Icons.home_filled,
+                  index: 0,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
+                _NavBarItem(
+                  icon: Icons.camera_alt_rounded,
+                  index: 1,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
+                const SizedBox(width: 60),
+                _NavBarItem(
+                  icon: Icons.calendar_today_rounded,
+                  index: 3,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
+                _NavBarItem(
+                  icon: Icons.person_rounded,
+                  index: 4,
+                  selectedIndex: selectedIndex,
+                  onTap: onTap,
+                ),
               ],
             ),
           ),
           Positioned(
-            bottom: 45, 
+            bottom: 45,
             child: GestureDetector(
               onTap: () => onTap(2),
               child: Container(
@@ -246,7 +269,13 @@ class CustomNavBar extends StatelessWidget {
                   color: isMapSelected ? primaryBlue : Colors.white,
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(color: primaryBlue, width: 2),
-                  boxShadow: const [BoxShadow(color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))],
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x3F000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Icon(
                   Icons.map_outlined,
@@ -268,7 +297,12 @@ class _NavBarItem extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onTap;
 
-  const _NavBarItem({required this.icon, required this.index, required this.selectedIndex, required this.onTap});
+  const _NavBarItem({
+    required this.icon,
+    required this.index,
+    required this.selectedIndex,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
