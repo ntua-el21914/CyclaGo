@@ -73,7 +73,7 @@ Android Studio / VS Code
 
 4. Παρουσίαση (Video)
 
-Link:
+Link: https://drive.google.com/drive/folders/1Sto8u_ARJSXtFeGqsUcdypglHcZST7NH?usp=drive_link
 
 
 
