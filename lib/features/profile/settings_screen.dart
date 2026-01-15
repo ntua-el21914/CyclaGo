@@ -169,6 +169,91 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _handleDeleteAccount(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Delete Account', style: GoogleFonts.hammersmithOne(fontSize: 22)),
+        content: Text(
+          'Are you sure you want to delete your account? This will permanently delete all your posts and data. This action cannot be undone.',
+          style: GoogleFonts.hammersmithOne(fontSize: 16, color: const Color(0xFF737373)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: GoogleFonts.hammersmithOne(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: GoogleFonts.hammersmithOne(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFF1269C7))),
+    );
+
+    try {
+      // 1. Delete all user's posts
+      final postsSnapshot = await FirebaseFirestore.instance
+          .collection('posts')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      for (var doc in postsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // 2. Delete user document from 'users' collection
+      final userDocSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: user.email)
+          .get();
+
+      for (var doc in userDocSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // 3. Clear local cache
+      ProfileCache.clear();
+      GlobalFeedData.posts.clear();
+
+      // 4. Delete Firebase Auth account
+      await user.delete();
+
+      // 5. Navigate to login screen
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting account: $e', style: GoogleFonts.hammersmithOne()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color primaryBlue = Color(0xFF1269C7);
@@ -217,7 +302,7 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(height: 15),
                   _SettingsItem(icon: Icons.logout, title: 'Log out', onTap: () => _handleLogout(context)),
                   const SizedBox(height: 15),
-                  _SettingsItem(icon: Icons.delete_forever, title: 'Delete account', iconColor: Colors.red, onTap: () {}),
+                  _SettingsItem(icon: Icons.delete_forever, title: 'Delete account', iconColor: Colors.red, onTap: () => _handleDeleteAccount(context)),
                 ],
               ),
             ),

@@ -150,69 +150,55 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
           children: [
             _buildHeader(primaryBlue),
             Expanded(
-              child: SingleChildScrollView(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20.0),
-                    child: Container(
-                      width: 364, height: 650,
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 3, color: primaryBlue),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+                child: Container(
+                  width: double.infinity,
+                  height: MediaQuery.of(context).size.height - 280,
+                  margin: const EdgeInsets.only(bottom: 30),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: primaryBlue, width: 2),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 80, color: primaryBlue),
+                      const SizedBox(height: 30),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                        decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: primaryBlue, width: 3),
+                        ),
+                        child: Text('Invalid Location', style: GoogleFonts.hammersmithOne(color: primaryBlue, fontSize: 24, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(height: 50),
+                      GestureDetector(
+                        onTap: _isRetrying ? null : () async {
+                          if (widget.onRetry != null) {
+                            setState(() => _isRetrying = true);
+                            await Future.delayed(const Duration(milliseconds: 500));
+                            widget.onRetry!();
+                            if (mounted) setState(() => _isRetrying = false);
+                          }
+                        },
+                        child: Container(
+                          width: 130, height: 40,
+                          decoration: BoxDecoration(
+                            color: _isRetrying ? Colors.white : primaryBlue,
+                            borderRadius: BorderRadius.circular(20),
+                            border: _isRetrying ? Border.all(color: primaryBlue, width: 2) : null,
+                          ),
+                          child: Center(
+                            child: _isRetrying
+                              ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(primaryBlue)))
+                              : Text('Try again?', style: GoogleFonts.hammersmithOne(color: _isRetrying ? primaryBlue : Colors.white, fontSize: 18)),
+                          ),
                         ),
                       ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            left: 0, right: 0, top: 180,
-                            child: Icon(Icons.warning_amber_rounded, size: 80, color: primaryBlue),
-                          ),
-                          Positioned(
-                            left: 49, top: 280,
-                            child: Container(
-                              width: 265, height: 43,
-                              decoration: ShapeDecoration(
-                                shape: RoundedRectangleBorder(
-                                  side: BorderSide(width: 4, color: primaryBlue),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              child: Center(child: Text('Invalid Location', style: GoogleFonts.hammersmithOne(color: primaryBlue, fontSize: 24, fontWeight: FontWeight.bold))),
-                            ),
-                          ),
-                          Positioned(
-                            left: 117, top: 450,
-                            child: GestureDetector(
-                              onTap: _isRetrying ? null : () async {
-                                if (widget.onRetry != null) {
-                                  setState(() => _isRetrying = true);
-                                  await Future.delayed(const Duration(milliseconds: 500));
-                                  widget.onRetry!();
-                                  if (mounted) setState(() => _isRetrying = false);
-                                }
-                              },
-                              child: Container(
-                                width: 130, height: 40,
-                                decoration: ShapeDecoration(
-                                  color: _isRetrying ? Colors.white : primaryBlue,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                    side: _isRetrying ? BorderSide(width: 2, color: primaryBlue) : BorderSide.none,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: _isRetrying
-                                    ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(primaryBlue)))
-                                    : Text('Try again?', style: GoogleFonts.hammersmithOne(color: _isRetrying ? primaryBlue : Colors.white, fontSize: 18)),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               ),
