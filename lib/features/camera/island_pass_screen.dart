@@ -281,12 +281,9 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
                           ),
                           const SizedBox(height: 20),
                         ],
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height - 250,
-                          child: isUnlocked
-                              ? _buildRealSocialFeed(primaryBlue, bottomPadding)
-                              : _buildEmptyState(context, primaryBlue),
-                        ),
+                        isUnlocked
+                            ? _buildRealSocialFeed(primaryBlue, bottomPadding)
+                            : _buildEmptyState(context, primaryBlue),
                       ],
                     ),
                   ),
@@ -350,6 +347,8 @@ class _IslandPassScreenState extends State<IslandPassScreen> {
         }
 
         return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           padding: EdgeInsets.only(bottom: bottomPadding, top: 10),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.8,
